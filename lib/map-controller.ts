@@ -55,18 +55,39 @@ export class MapController {
   }
 
   /**
-   * Adds a list of markers to the map.
+   * Adds a list of markers to the map. When a marker carries a `rank`, its label
+   * is prefixed with the rank number and (if the Maps `marker` library is loaded)
+   * it is colour-tinted: 1st gold, 2nd–3rd green, the rest grey.
    * @param markers - An array of marker data to be rendered.
    */
   addMarkers(markers: MapMarker[]) {
     for (const markerData of markers) {
+      const hasRank = typeof markerData.rank === 'number';
+      const label = hasRank ? `${markerData.rank}. ${markerData.label}` : markerData.label;
+
       const marker = new this.maps3dLib.Marker3DInteractiveElement({
         position: markerData.position,
         altitudeMode: 'RELATIVE_TO_MESH',
-        label: markerData.showLabel ? markerData.label : null,
-        title: markerData.label,
+        label: markerData.showLabel ? label : null,
+        title: label,
         drawsWhenOccluded: true,
       });
+
+      // Optional colour tint via a PinElement child, only if the marker library
+      // is available. Falls back to the default marker (with numbered label) otherwise.
+      const PinElement = (google.maps as any).marker?.PinElement;
+      if (hasRank && PinElement) {
+        const rank = markerData.rank as number;
+        const background = rank === 1 ? '#f4b400' : rank <= 3 ? '#0f9d58' : '#5f6368';
+        const pin = new PinElement({
+          background,
+          borderColor: '#202124',
+          glyphColor: '#ffffff',
+          glyph: String(rank),
+        });
+        marker.appendChild(pin);
+      }
+
       this.map.appendChild(marker);
     }
   }
