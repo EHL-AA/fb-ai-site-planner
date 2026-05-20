@@ -72,7 +72,10 @@ export function validateRankedResult(data: any): RankedResult {
   for (const item of data.ranked) {
     if (!item || typeof item.id !== 'string') throw new Error('ranked item missing id');
     if (typeof item.rank !== 'number') throw new Error(`ranked item ${item.id} missing rank`);
+    if (typeof item.compositeScore0to100 !== 'number') throw new Error(`ranked item ${item.id} missing compositeScore0to100`);
     if (!item.breakdown || typeof item.breakdown !== 'object') throw new Error(`ranked item ${item.id} missing breakdown`);
+    if (typeof item.rationale !== 'string') throw new Error(`ranked item ${item.id} missing rationale`);
+    if (typeof item.risks !== 'string') throw new Error(`ranked item ${item.id} missing risks`);
   }
   return data as RankedResult;
 }
@@ -90,6 +93,7 @@ async function callPro(prompt: string): Promise<RankedResult> {
           systemInstruction: SYSTEM,
           responseMimeType: 'application/json',
           responseSchema: RESPONSE_SCHEMA as any,
+          thinkingConfig: { thinkingBudget: -1 }, // -1 = dynamic ("thinking on")
         },
       });
       return validateRankedResult(JSON.parse(res.text ?? ''));

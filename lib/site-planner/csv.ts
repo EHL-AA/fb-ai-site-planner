@@ -38,6 +38,12 @@ const num = (v: unknown): number => {
   return Number.isFinite(n) ? n : NaN;
 };
 
+/** Parsed number, or undefined when absent/unparseable. Preserves a legitimate 0. */
+const numOrUndef = (v: unknown): number | undefined => {
+  const n = num(v);
+  return Number.isNaN(n) ? undefined : n;
+};
+
 function parse<T>(csv: string, build: (row: any, map: Record<string, string>) => { record: T & { address?: string }; rowError?: string }): ParseResult<T> {
   const parsed = Papa.parse<Record<string, string>>(csv, { header: true, skipEmptyLines: true });
   const headerMap = resolveHeaders(parsed.meta.fields ?? []);
@@ -102,11 +108,11 @@ export function parseDemographics(csv: string): ParseResult<DemographicRecord> {
     return {
       record: {
         suburb,
-        population: map.population ? num(row[map.population]) || undefined : undefined,
-        income: map.income ? num(row[map.income]) || undefined : undefined,
-        lsm: map.lsm ? num(row[map.lsm]) || undefined : undefined,
-        households: map.households ? num(row[map.households]) || undefined : undefined,
-        density: map.density ? num(row[map.density]) || undefined : undefined,
+        population: map.population ? numOrUndef(row[map.population]) : undefined,
+        income: map.income ? numOrUndef(row[map.income]) : undefined,
+        lsm: map.lsm ? numOrUndef(row[map.lsm]) : undefined,
+        households: map.households ? numOrUndef(row[map.households]) : undefined,
+        density: map.density ? numOrUndef(row[map.density]) : undefined,
       },
       rowError: suburb ? undefined : 'missing suburb/area name',
     };

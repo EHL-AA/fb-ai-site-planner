@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildPrompt, validateRankedResult } from './reasoning';
+import { buildPrompt, validateRankedResult, REASONING_MODEL } from './reasoning';
 import { FeatureVector, DEFAULT_WEIGHTS } from './types';
 
 const fv: FeatureVector = {
@@ -10,6 +10,12 @@ const fv: FeatureVector = {
   cannibalisation: { ownStoresWithin2km: 0, nearestOwnStoreM: null },
   demographics: { source: 'csv', lsm: 9, affluenceProxy0to100: 80 },
 };
+
+describe('REASONING_MODEL', () => {
+  it('is the Pro reasoning model the spec requires', () => {
+    expect(REASONING_MODEL).toBe('gemini-2.5-pro');
+  });
+});
 
 describe('buildPrompt', () => {
   it('embeds brand, weights and each candidate id', () => {
