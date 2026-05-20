@@ -1,7 +1,5 @@
 {
-  "name": "Chat with Maps Live",
-  "description": "Experience Gemini and Grounding with Google Maps' ability to engage in real-time, voice-driven conversations for trip planning using natural language.",
-  "requestFramePermissions": [
-    "microphone"
-  ]
+  "name": "Famous Brands Site Planner",
+  "description": "Rank where to open a store in a chosen suburb using Gemini 2.5 Pro reasoning over Maps-derived and uploaded signals.",
+  "requestFramePermissions": []
 }
