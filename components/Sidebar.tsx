@@ -1,83 +1,34 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
-*/
-// FIX: Added missing React imports.
-import React, { useEffect, useMemo } from 'react';
-import { useSettings, useUI, useLogStore, useTools, personas } from '@/lib/state';
+ */
+import React from 'react';
 import c from 'classnames';
-import {
-  AVAILABLE_VOICES_FULL,
-  AVAILABLE_VOICES_LIMITED,
-  MODELS_WITH_LIMITED_VOICES,
-  DEFAULT_VOICE,
-} from '@/lib/constants';
-import { useLiveAPIContext } from '@/contexts/LiveAPIContext';
+import { useUI } from '@/lib/state';
+import DataUpload from '@/components/site-planner/DataUpload';
+import { usePlannerStore } from '@/lib/site-planner/data-store';
+import { ScoringWeights } from '@/lib/site-planner/types';
 
-const AVAILABLE_MODELS = [
-  'gemini-2.5-flash-native-audio-preview-09-2025',
-  'gemini-2.5-flash-native-audio-latest', 
-  'gemini-live-2.5-flash-preview',
-  'gemini-2.0-flash-live-001'
+const WEIGHT_FIELDS: { key: keyof ScoringWeights; label: string }[] = [
+  { key: 'traffic', label: 'Traffic' },
+  { key: 'demographics', label: 'Demographics' },
+  { key: 'competition', label: 'Competition' },
+  { key: 'accessibility', label: 'Accessibility' },
 ];
 
 export default function Sidebar() {
-  const {
-    isSidebarOpen,
-    toggleSidebar,
-    showSystemMessages,
-    toggleShowSystemMessages,
-  } = useUI();
-  const {
-    systemPrompt,
-    model,
-    voice,
-    setSystemPrompt,
-    setModel,
-    setVoice,
-    isEasterEggMode,
-    activePersona,
-    setPersona,
-  } = useSettings();
-  const { connected } = useLiveAPIContext();
+  const { isSidebarOpen, toggleSidebar } = useUI();
+  const { weights, setWeights, uploadErrors, reset, brand, suburb, city, features, result } =
+    usePlannerStore();
 
-  const availableVoices = useMemo(() => {
-    return MODELS_WITH_LIMITED_VOICES.includes(model)
-      ? AVAILABLE_VOICES_LIMITED
-      : AVAILABLE_VOICES_FULL;
-  }, [model]);
-
-  useEffect(() => {
-    if (!availableVoices.some(v => v.name === voice)) {
-      setVoice(DEFAULT_VOICE);
-    }
-  }, [availableVoices, voice, setVoice]);
-
-  const handleExportLogs = () => {
-    const { systemPrompt, model } = useSettings.getState();
-    const { tools } = useTools.getState();
-    const { turns } = useLogStore.getState();
-
-    const logData = {
-      configuration: {
-        model,
-        systemPrompt,
-      },
-      tools,
-      conversation: turns.map(turn => ({
-        ...turn,
-        // Convert Date object to ISO string for JSON serialization
-        timestamp: turn.timestamp.toISOString(),
-      })),
-    };
-
-    const jsonString = JSON.stringify(logData, null, 2);
-    const blob = new Blob([jsonString], { type: 'application/json' });
+  const handleExport = () => {
+    const payload = { brand, city, suburb, weights, features, result };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     a.href = url;
-    a.download = `live-api-logs-${timestamp}.json`;
+    a.download = `site-analysis-${suburb || 'export'}-${timestamp}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -85,104 +36,58 @@ export default function Sidebar() {
   };
 
   return (
-    <>
-      <aside className={c('sidebar', { open: isSidebarOpen })}>
-        <div className="sidebar-header">
-          <h3>Settings</h3>
-          <button onClick={toggleSidebar} className="close-button">
-            <span className="icon">close</span>
+    <aside className={c('sidebar', { open: isSidebarOpen })}>
+      <div className="sidebar-header">
+        <h3>Data &amp; weights</h3>
+        <button onClick={toggleSidebar} className="close-button" aria-label="Close settings">
+          <span className="icon">close</span>
+        </button>
+      </div>
+      <div className="sidebar-content">
+        <div className="sidebar-section">
+          <h4>Your data</h4>
+          <DataUpload />
+        </div>
+
+        <div className="sidebar-section">
+          <h4>Scoring weights</h4>
+          {WEIGHT_FIELDS.map(({ key, label }) => (
+            <label key={key} className="weight-slider">
+              <span>{label}: {weights[key].toFixed(2)}</span>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                value={weights[key]}
+                onChange={e => setWeights({ ...weights, [key]: Number(e.target.value) })}
+              />
+            </label>
+          ))}
+        </div>
+
+        {uploadErrors.length > 0 && (
+          <div className="sidebar-section upload-errors">
+            <h4>Upload notes ({uploadErrors.length})</h4>
+            <ul>
+              {uploadErrors.map((e, i) => (
+                <li key={i}>{e}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <div className="sidebar-actions">
+          <button onClick={handleExport} title="Export the current analysis as JSON" disabled={!result}>
+            <span className="icon">download</span>
+            Export analysis
+          </button>
+          <button onClick={reset} title="Clear candidates, ranking and chat">
+            <span className="icon">refresh</span>
+            Reset
           </button>
         </div>
-        <div className="sidebar-content">
-          <div className="sidebar-section">
-            <fieldset disabled={connected}>
-              {isEasterEggMode && (
-                <label>
-                  Persona
-                  <select
-                    value={activePersona}
-                    onChange={e => setPersona(e.target.value)}
-                  >
-                    {Object.keys(personas).map(personaName => (
-                      <option key={personaName} value={personaName}>
-                        {personaName}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
-              <label>
-                System Prompt
-                <textarea
-                  value={systemPrompt}
-                  onChange={e => setSystemPrompt(e.target.value)}
-                  rows={10}
-                  placeholder="Describe the role and personality of the AI..."
-                  disabled={isEasterEggMode}
-                />
-              </label>
-              <label>
-                Model
-                <select
-                  value={model}
-                  onChange={e => setModel(e.target.value)}
-                  disabled={!isEasterEggMode}
-                >
-                  {/* This is an experimental model name that should not be removed from the options. */}
-                  {AVAILABLE_MODELS.map(m => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Voice
-                <select
-                  value={voice}
-                  onChange={e => setVoice(e.target.value)}
-                >
-                  {availableVoices.map(v => (
-                    <option key={v.name} value={v.name}>
-                      {v.name} ({v.description})
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </fieldset>
-            <div className="settings-toggle-item">
-              <label className="tool-checkbox-wrapper">
-                <input
-                  type="checkbox"
-                  id="system-message-toggle"
-                  checked={showSystemMessages}
-                  onChange={toggleShowSystemMessages}
-                />
-                <span className="checkbox-visual"></span>
-              </label>
-              <label
-                htmlFor="system-message-toggle"
-                className="settings-toggle-label"
-              >
-                Show system messages
-              </label>
-            </div>
-          </div>
-          <div className="sidebar-actions">
-            <button onClick={handleExportLogs} title="Export session logs">
-              <span className="icon">download</span>
-              Export Logs
-            </button>
-            <button
-              onClick={useLogStore.getState().clearTurns}
-              title="Reset session logs"
-            >
-              <span className="icon">refresh</span>
-              Reset Session
-            </button>
-          </div>
-        </div>
-      </aside>
-    </>
+      </div>
+    </aside>
   );
 }
