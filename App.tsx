@@ -20,6 +20,11 @@ if (typeof API_KEY !== 'string') {
   throw new Error('Missing required environment variable: GEMINI_API_KEY');
 }
 
+// Google Maps Platform key. Prefer your own billed key via MAPS_API_KEY in .env;
+// falls back to the shared AI Studio demo key (low daily Places quota).
+const MAPS_API_KEY =
+  process.env.MAPS_API_KEY || 'AIzaSyCYTvt7YMcKjSNTnBa42djlndCeDvZHkr0';
+
 const INITIAL_VIEW_PROPS = {
   center: { lat: -26.1076, lng: 28.0567, altitude: 1000 }, // Sandton, Johannesburg
   range: 3000,
@@ -165,7 +170,7 @@ function App() {
     <div className="App">
       <APIProvider
         version={'alpha'}
-        apiKey={'AIzaSyCYTvt7YMcKjSNTnBa42djlndCeDvZHkr0'}
+        apiKey={MAPS_API_KEY}
         solutionChannel={'gmp_aistudio_itineraryapplet_v1.0.0'}>
         <AppComponent />
       </APIProvider>
