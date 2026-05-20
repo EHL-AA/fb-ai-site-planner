@@ -7,10 +7,16 @@ export interface DetectOptions {
   placesLib: google.maps.PlacesLibrary;
   geocoder: google.maps.Geocoder;
   query: string;            // "Rosebank, Johannesburg"
-  gridSize?: number;        // sampling resolution (default 3 -> 9 points)
-  searchRadiusM?: number;   // per-point radius (default 800)
+  gridSize?: number;        // sampling resolution (default 2 -> 4 Places calls)
+  searchRadiusM?: number;   // per-point radius (default 1000)
   clusterRadiusM?: number;  // node merge radius (default 250)
   maxNodes?: number;        // top-N nodes to keep (default 8)
+}
+
+/** True when a Places error is a daily/rate quota exhaustion. */
+function isQuotaError(e: unknown): boolean {
+  const msg = (e instanceof Error ? e.message : String(e)) || '';
+  return /RESOURCE_EXHAUSTED|quota exceeded|RATE_LIMIT/i.test(msg);
 }
 
 interface WeightedPlacePoint extends WeightedPoint { place: RawPlace; }
@@ -18,8 +24,8 @@ interface WeightedPlacePoint extends WeightedPoint { place: RawPlace; }
 /** Geocode the suburb, sweep Places across it, and cluster POIs into nodes. */
 export async function detectCommercialNodes(opts: DetectOptions): Promise<CandidateNode[]> {
   const { placesLib, geocoder, query } = opts;
-  const gridSize = opts.gridSize ?? 3;
-  const searchRadiusM = opts.searchRadiusM ?? 800;
+  const gridSize = opts.gridSize ?? 2;
+  const searchRadiusM = opts.searchRadiusM ?? 1000;
   const clusterRadiusM = opts.clusterRadiusM ?? 250;
   const maxNodes = opts.maxNodes ?? 8;
 
@@ -29,13 +35,22 @@ export async function detectCommercialNodes(opts: DetectOptions): Promise<Candid
   const bounds: Bounds = { north: vp.north, south: vp.south, east: vp.east, west: vp.west };
 
   const seen = new Map<string, RawPlace>();
+  let quotaHit = false;
   for (const pt of gridPoints(bounds, gridSize)) {
-    const { places } = await placesLib.Place.searchNearby({
-      locationRestriction: { center: { lat: pt.lat, lng: pt.lng }, radius: searchRadiusM },
-      includedTypes: SEARCH_TYPES,
-      maxResultCount: 20,
-      fields: ['location', 'displayName', 'rating', 'userRatingCount', 'types', 'primaryType'],
-    });
+    let places: google.maps.places.Place[] | undefined;
+    try {
+      ({ places } = await placesLib.Place.searchNearby({
+        locationRestriction: { center: { lat: pt.lat, lng: pt.lng }, radius: searchRadiusM },
+        includedTypes: SEARCH_TYPES,
+        maxResultCount: 20,
+        fields: ['location', 'displayName', 'rating', 'userRatingCount', 'types', 'primaryType'],
+      }));
+    } catch (e) {
+      // Tolerate a single failed search; only abort if every call fails (below).
+      if (isQuotaError(e)) quotaHit = true;
+      console.warn('Places searchNearby failed for a grid point:', e);
+      continue;
+    }
     for (const p of places ?? []) {
       const loc = p.location;
       if (!loc) continue;
@@ -50,6 +65,12 @@ export async function detectCommercialNodes(opts: DetectOptions): Promise<Candid
         displayName: p.displayName ?? undefined,
       });
     }
+  }
+
+  if (seen.size === 0 && quotaHit) {
+    throw new Error(
+      'Google Places daily quota exceeded (RESOURCE_EXHAUSTED). Use your own Google Maps API key with billing enabled, raise the "SearchNearby requests per day" quota, or try again after the quota resets (midnight US Pacific time).',
+    );
   }
 
   const weighted: WeightedPlacePoint[] = [...seen.values()].map(p => ({

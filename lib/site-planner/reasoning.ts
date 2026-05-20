@@ -96,7 +96,8 @@ async function callPro(prompt: string): Promise<RankedResult> {
           thinkingConfig: { thinkingBudget: -1 }, // -1 = dynamic ("thinking on")
         },
       });
-      return validateRankedResult(JSON.parse(res.text ?? ''));
+      if (!res.text) throw new Error('Empty response from the reasoning model.');
+      return validateRankedResult(JSON.parse(res.text));
     } catch (e) {
       lastErr = e;
     }

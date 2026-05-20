@@ -16,6 +16,8 @@ export default function RankedPanel() {
     const f = featureById.get(id);
     if (!f) return;
     selectSite(id);
+    // Prevent the marker auto-frame effect from fighting this direct fly-to.
+    useMapStore.getState().setPreventAutoFrame(true);
     useMapStore.getState().setCameraTarget({ center: { lat: f.lat, lng: f.lng, altitude: 300 }, range: 800, tilt: 55, heading: 0, roll: 0 });
   };
 

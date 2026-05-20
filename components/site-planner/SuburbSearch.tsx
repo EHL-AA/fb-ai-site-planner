@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { usePlanner } from '@/contexts/PlannerContext';
 import { usePlannerStore, FAMOUS_BRANDS } from '@/lib/site-planner/data-store';
+import { useUI } from '@/lib/state';
 
 export default function SuburbSearch() {
   const { runAnalysis } = usePlanner();
   const { brand, setBrand, status } = usePlannerStore();
+  const { toggleSidebar } = useUI();
   const [city, setCity] = useState('Johannesburg');
   const [suburb, setSuburb] = useState('');
   const busy = status === 'detecting' || status === 'reasoning';
@@ -24,6 +26,15 @@ export default function SuburbSearch() {
       <input value={suburb} onChange={e => setSuburb(e.target.value)} placeholder="Suburb (e.g. Rosebank)" disabled={busy} aria-label="Suburb" />
       <button type="submit" disabled={busy || !suburb.trim()}>
         {busy ? 'Analysing…' : 'Find sites'}
+      </button>
+      <button
+        type="button"
+        className="settings-toggle"
+        onClick={toggleSidebar}
+        title="Data & weights"
+        aria-label="Open data and weights panel"
+      >
+        <span className="icon">tune</span>
       </button>
     </form>
   );

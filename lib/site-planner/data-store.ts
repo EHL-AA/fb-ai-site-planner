@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useMapStore } from '@/lib/state';
 import {
   CompetitorRecord, StoreRecord, DemographicRecord,
   CandidateNode, FeatureVector, RankedResult, ScoringWeights, DEFAULT_WEIGHTS,
@@ -74,7 +75,10 @@ export const usePlannerStore = create<PlannerState>(set => ({
   setError: errorMessage => set({ errorMessage }),
   selectSite: selectedSiteId => set({ selectedSiteId }),
   addChat: m => set(s => ({ chat: [...s.chat, m] })),
-  reset: () => set({ candidates: [], features: [], result: null, status: 'idle', errorMessage: null, selectedSiteId: null, chat: [], uploadErrors: [] }),
+  reset: () => {
+    useMapStore.getState().setMarkers([]);
+    set({ candidates: [], features: [], result: null, status: 'idle', errorMessage: null, selectedSiteId: null, chat: [], uploadErrors: [] });
+  },
 }));
 
 export const FAMOUS_BRANDS = ['Steers', 'Debonairs Pizza', 'Wimpy', 'Mugg & Bean', 'Fishaways', 'Milky Lane'];
