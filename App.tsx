@@ -5,8 +5,10 @@
 import React, { useCallback, useState, useEffect, useRef } from 'react';
 
 import Sidebar from './components/Sidebar';
-import PlannerPanel from './components/site-planner/PlannerPanel';
-import AssistantDock from './components/site-planner/AssistantDock';
+import SitesSidebar from './components/site-planner/SitesSidebar';
+import AssistantPanel from './components/site-planner/AssistantPanel';
+import MapChrome from './components/site-planner/MapChrome';
+import DetailCard from './components/site-planner/DetailCard';
 import { PlannerProvider } from './contexts/PlannerContext';
 import { APIProvider, useMapsLibrary } from '@vis.gl/react-google-maps';
 import { Map3D, Map3DCameraProps } from './components/map-3d';
@@ -75,8 +77,8 @@ function AppComponent() {
   useEffect(() => {
     const calculatePadding = () => {
       const vw = window.innerWidth;
-      const leftEl = document.querySelector('.rail') as HTMLElement | null;
-      const rightEl = document.querySelector('.assistant-dock') as HTMLElement | null;
+      const leftEl = document.querySelector('.sp-left-rail') as HTMLElement | null;
+      const rightEl = document.querySelector('.sp-right-rail') as HTMLElement | null;
       const isStacked = window.matchMedia('(max-width: 900px)').matches;
 
       const left = !isStacked && leftEl ? leftEl.offsetWidth / vw + 0.02 : 0.05;
@@ -132,16 +134,18 @@ function AppComponent() {
 
   return (
     <PlannerProvider placesLib={placesLib} geocoder={geocoder}>
-      <div className="planner-shell">
-        <PlannerPanel />
+      <div style={{ display: 'flex', width: '100vw', height: '100vh', background: 'var(--bg)' }}>
+        <SitesSidebar />
         <main className="map-stage">
           <Map3D
             ref={element => setMap(element ?? null)}
             onCameraChange={handleCameraChange}
             {...viewProps}
           />
+          <MapChrome />
+          <DetailCard />
         </main>
-        <AssistantDock />
+        <AssistantPanel />
       </div>
       <Sidebar />
     </PlannerProvider>
