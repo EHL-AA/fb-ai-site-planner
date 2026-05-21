@@ -8,6 +8,10 @@ export default defineConfig(({ mode }) => {
       server: {
         port: 3000,
         host: '0.0.0.0',
+        // Project lives on the Windows filesystem (/mnt/c) under WSL2, where
+        // native file events don't cross the boundary reliably. Poll so HMR
+        // actually picks up edits instead of silently going stale.
+        watch: { usePolling: true, interval: 300 },
       },
       plugins: [react()],
       define: {
