@@ -26,13 +26,33 @@ export default function RankedPanel() {
       );
     }
     return (
-      <div className="rank-state welcome">
-        <span className="icon">explore</span>
-        <p className="rank-state-title">Pick a suburb to scout</p>
-        <p className="rank-state-hint">
-          Choose a brand and a city + suburb above, then “Find sites”. I’ll detect the busiest
-          commercial nodes and rank them for a new store.
+      <div className="onboard">
+        <p className="onboard-lead">
+          Find the best place to open a <strong>{usePlannerStore.getState().brand}</strong>.
         </p>
+        <ol className="onboard-steps">
+          <li>
+            <span className="step-no">1</span>
+            <div>
+              <h4>Choose a location</h4>
+              <p>Set the brand, city and suburb above, then <strong>Find sites</strong>.</p>
+            </div>
+          </li>
+          <li>
+            <span className="step-no">2</span>
+            <div>
+              <h4>Review ranked sites</h4>
+              <p>I detect the busiest commercial nodes and score each on traffic, demographics, competition and accessibility.</p>
+            </div>
+          </li>
+          <li>
+            <span className="step-no">3</span>
+            <div>
+              <h4>Refine in plain language</h4>
+              <p>Add your competitor &amp; store CSVs (<span className="inline-icon icon">tune</span>), then ask the assistant to re-rank.</p>
+            </div>
+          </li>
+        </ol>
       </div>
     );
   }
