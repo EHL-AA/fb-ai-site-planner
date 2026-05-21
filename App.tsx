@@ -6,6 +6,7 @@ import React, { useCallback, useState, useEffect, useRef } from 'react';
 
 import Sidebar from './components/Sidebar';
 import PlannerPanel from './components/site-planner/PlannerPanel';
+import AssistantDock from './components/site-planner/AssistantDock';
 import { PlannerProvider } from './contexts/PlannerContext';
 import { APIProvider, useMapsLibrary } from '@vis.gl/react-google-maps';
 import { Map3D, Map3DCameraProps } from './components/map-3d';
@@ -49,8 +50,7 @@ function AppComponent() {
   const maps3dLib = useMapsLibrary('maps3d');
   const elevationLib = useMapsLibrary('elevation');
 
-  const consolePanelRef = useRef<HTMLDivElement>(null);
-  // Padding state ensures map content isn't hidden behind the console panel.
+  // Padding ensures framed map content isn't hidden behind the side rails.
   const [padding, setPadding] = useState<[number, number, number, number]>([0.05, 0.05, 0.05, 0.05]);
 
   // Instantiate the Geocoder once the library is loaded.
@@ -70,32 +70,25 @@ function AppComponent() {
     };
   }, [map, maps3dLib, elevationLib]);
 
-  // Calculate responsive padding from the console panel width (desktop).
+  // Responsive padding from the left rail + right chat dock widths, so framed
+  // map content stays clear of both side panels.
   useEffect(() => {
     const calculatePadding = () => {
-      const consoleEl = consolePanelRef.current;
       const vw = window.innerWidth;
-      if (!consoleEl) return;
+      const leftEl = document.querySelector('.rail') as HTMLElement | null;
+      const rightEl = document.querySelector('.assistant-dock') as HTMLElement | null;
+      const isStacked = window.matchMedia('(max-width: 900px)').matches;
 
-      const isMobile = window.matchMedia('(max-width: 768px)').matches;
-      const top = 0.05;
-      const right = 0.05;
-      const bottom = 0.05;
-      let left = 0.05;
-      if (!isMobile) {
-        left = Math.max(left, consoleEl.offsetWidth / vw + 0.02);
-      }
-      setPadding([top, right, bottom, left]);
+      const left = !isStacked && leftEl ? leftEl.offsetWidth / vw + 0.02 : 0.05;
+      const right = !isStacked && rightEl ? rightEl.offsetWidth / vw + 0.02 : 0.05;
+      setPadding([0.05, right, 0.05, left]);
     };
 
-    const observer = new ResizeObserver(calculatePadding);
-    if (consolePanelRef.current) observer.observe(consolePanelRef.current);
     window.addEventListener('resize', calculatePadding);
-    const timeoutId = setTimeout(calculatePadding, 100);
+    const timeoutId = setTimeout(calculatePadding, 200);
 
     return () => {
       window.removeEventListener('resize', calculatePadding);
-      observer.disconnect();
       clearTimeout(timeoutId);
     };
   }, []);
@@ -140,7 +133,7 @@ function AppComponent() {
   return (
     <PlannerProvider placesLib={placesLib} geocoder={geocoder}>
       <div className="planner-shell">
-        <PlannerPanel panelRef={consolePanelRef} />
+        <PlannerPanel />
         <main className="map-stage">
           <Map3D
             ref={element => setMap(element ?? null)}
@@ -148,6 +141,7 @@ function AppComponent() {
             {...viewProps}
           />
         </main>
+        <AssistantDock />
       </div>
       <Sidebar />
     </PlannerProvider>

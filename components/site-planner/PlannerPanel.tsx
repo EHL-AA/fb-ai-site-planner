@@ -1,25 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React from 'react';
 import SuburbSearch from './SuburbSearch';
 import RankedPanel from './RankedPanel';
-import ChatComposer from './ChatComposer';
-import AssistantChat from '../streaming-console/StreamingConsole';
 import { usePlannerStore } from '@/lib/site-planner/data-store';
 
-type Tab = 'ranked' | 'chat';
-
-export default function PlannerPanel({ panelRef }: { panelRef?: React.Ref<HTMLDivElement> }) {
-  const { status, result, chat } = usePlannerStore();
-  const [tab, setTab] = useState<Tab>('ranked');
+export default function PlannerPanel() {
+  const { status, result } = usePlannerStore();
   const rankedCount = result?.ranked.length ?? 0;
-  const chatCount = chat.length;
-
-  // When a new assistant reply arrives, surface the Assistant tab so the
-  // user always sees the response to their refinement.
-  const prevChat = useRef(0);
-  useEffect(() => {
-    if (chat.length > prevChat.current) setTab('chat');
-    prevChat.current = chat.length;
-  }, [chat.length]);
 
   const statusLabel =
     status === 'detecting'
@@ -28,10 +14,8 @@ export default function PlannerPanel({ panelRef }: { panelRef?: React.Ref<HTMLDi
         ? 'Gemini 2.5 Pro is scoring the candidates…'
         : null;
 
-  const showTabs = rankedCount > 0 || chatCount > 0;
-
   return (
-    <div className="rail" ref={panelRef}>
+    <div className="rail">
       <header className="rail-head">
         <div className="brand-mark">
           <span className="brand-kicker">Famous Brands</span>
@@ -48,32 +32,16 @@ export default function PlannerPanel({ panelRef }: { panelRef?: React.Ref<HTMLDi
         </div>
       )}
 
-      {showTabs && (
-        <nav className="rail-tabs" role="tablist">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === 'ranked'}
-            className={tab === 'ranked' ? 'active' : ''}
-            onClick={() => setTab('ranked')}
-          >
-            Ranked sites{rankedCount > 0 && <span className="tab-count">{rankedCount}</span>}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === 'chat'}
-            className={tab === 'chat' ? 'active' : ''}
-            onClick={() => setTab('chat')}
-          >
-            Assistant{chatCount > 0 && <span className="tab-count">{chatCount}</span>}
-          </button>
-        </nav>
+      {rankedCount > 0 && (
+        <div className="rail-section-label">
+          <span>Ranked sites</span>
+          <span className="rail-count">{rankedCount}</span>
+        </div>
       )}
 
-      <div className="rail-body">{tab === 'ranked' ? <RankedPanel /> : <AssistantChat />}</div>
-
-      <ChatComposer />
+      <div className="rail-body">
+        <RankedPanel />
+      </div>
     </div>
   );
 }

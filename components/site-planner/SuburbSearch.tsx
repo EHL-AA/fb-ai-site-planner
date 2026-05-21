@@ -28,16 +28,14 @@ export default function SuburbSearch() {
         </select>
       </label>
 
-      <div className="field-row">
-        <label className="field">
-          <span className="field-label">City</span>
-          <input value={city} onChange={e => setCity(e.target.value)} placeholder="Johannesburg" disabled={busy} />
-        </label>
-        <label className="field">
-          <span className="field-label">Suburb</span>
-          <input value={suburb} onChange={e => setSuburb(e.target.value)} placeholder="e.g. Rosebank" disabled={busy} />
-        </label>
-      </div>
+      <label className="field">
+        <span className="field-label">City</span>
+        <input value={city} onChange={e => setCity(e.target.value)} placeholder="Johannesburg" disabled={busy} />
+      </label>
+      <label className="field">
+        <span className="field-label">Suburb</span>
+        <input value={suburb} onChange={e => setSuburb(e.target.value)} placeholder="e.g. Rosebank" disabled={busy} />
+      </label>
 
       <div className="search-actions">
         <button type="submit" className="btn-primary" disabled={busy || !suburb.trim()}>

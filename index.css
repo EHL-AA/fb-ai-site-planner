@@ -1182,13 +1182,83 @@ gmp-map-3d {
 .rail {
   position: relative;
   z-index: 5;
-  flex: 0 0 clamp(380px, 32vw, 520px);
+  flex: 0 0 clamp(300px, 25vw, 400px);
   display: flex;
   flex-direction: column;
   height: 100vh;
   background: var(--fp-rail);
   border-right: 1px solid var(--fp-line);
   box-shadow: 24px 0 60px -30px rgba(0, 0, 0, 0.8);
+}
+
+/* right-hand assistant dock (chat in its own block) */
+.assistant-dock {
+  position: relative;
+  z-index: 5;
+  flex: 0 0 clamp(300px, 24vw, 400px);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--fp-rail);
+  border-left: 1px solid var(--fp-line);
+  box-shadow: -24px 0 60px -30px rgba(0, 0, 0, 0.8);
+}
+.dock-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--fp-line);
+}
+.dock-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--fp-display);
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--fp-text);
+}
+.dock-title .icon {
+  color: var(--fp-amber);
+  font-size: 19px;
+}
+.dock-count {
+  font-family: var(--fp-mono);
+  font-size: 11px;
+  background: var(--fp-surface-2);
+  color: var(--fp-text-dim);
+  border-radius: 999px;
+  padding: 2px 9px;
+}
+.dock-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* left rail section label */
+.rail-section-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 22px 6px;
+  font-family: var(--fp-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--fp-text-faint);
+}
+.rail-count {
+  font-family: var(--fp-mono);
+  font-size: 11px;
+  background: var(--fp-amber);
+  color: #1a1206;
+  border-radius: 999px;
+  padding: 1px 8px;
+  letter-spacing: 0;
 }
 
 /* header */
@@ -1832,21 +1902,28 @@ gmp-map-3d {
   flex: 1;
 }
 
-/* responsive: stack the rail above the map on narrow screens */
-@media (max-width: 760px) {
+/* responsive: stack rail → map → assistant dock on narrow screens */
+@media (max-width: 900px) {
   .planner-shell {
     flex-direction: column;
+    height: auto;
+    min-height: 100vh;
   }
-  .rail {
-    flex: 1 1 auto;
+  .rail,
+  .assistant-dock {
+    flex: 0 0 auto;
     width: 100%;
     height: auto;
-    max-height: 62vh;
+    max-height: 60vh;
     border-right: none;
+    border-left: none;
     border-bottom: 1px solid var(--fp-line);
+    box-shadow: none;
   }
   .map-stage {
-    flex: 1 1 38vh;
-    min-height: 38vh;
+    flex: 0 0 auto;
+    width: 100%;
+    height: 52vh;
+    min-height: 320px;
   }
 }
