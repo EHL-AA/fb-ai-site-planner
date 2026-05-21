@@ -133,14 +133,14 @@ export default function SitesSidebar() {
 
       {/* Search → runs analysis */}
       <form onSubmit={onSubmit} style={{ padding: '12px 18px', borderBottom: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-2)', border: '1px solid var(--line-2)', borderRadius: 10, padding: '8px 10px', flex: 1 }}>
-            <Icon name="map" size={14} style={{ color: 'var(--ink-3)' }} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-2)', border: '1px solid var(--line-2)', borderRadius: 10, padding: '8px 10px' }}>
+            <Icon name="map" size={14} style={{ color: 'var(--ink-3)', flexShrink: 0 }} />
             <input value={city} onChange={e => setCity(e.target.value)} placeholder="City" disabled={busy}
               style={{ background: 'transparent', border: 'none', outline: 'none', color: 'var(--ink)', fontSize: 13, flex: 1, padding: 0, minWidth: 0 }} />
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-2)', border: '1px solid var(--line-2)', borderRadius: 10, padding: '8px 10px', flex: 1.3 }}>
-            <Icon name="search" size={14} style={{ color: 'var(--ink-3)' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-2)', border: '1px solid var(--line-2)', borderRadius: 10, padding: '8px 10px' }}>
+            <Icon name="search" size={14} style={{ color: 'var(--ink-3)', flexShrink: 0 }} />
             <input value={suburb} onChange={e => setSuburb(e.target.value)} placeholder="Suburb…" disabled={busy}
               style={{ background: 'transparent', border: 'none', outline: 'none', color: 'var(--ink)', fontSize: 13, flex: 1, padding: 0, minWidth: 0 }} />
           </div>
