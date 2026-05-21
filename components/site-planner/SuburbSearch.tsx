@@ -18,24 +18,41 @@ export default function SuburbSearch() {
   };
 
   return (
-    <form className="suburb-search" onSubmit={onSubmit}>
-      <select value={brand} onChange={e => setBrand(e.target.value)} disabled={busy} aria-label="Brand">
-        {FAMOUS_BRANDS.map(b => <option key={b} value={b}>{b}</option>)}
-      </select>
-      <input value={city} onChange={e => setCity(e.target.value)} placeholder="City" disabled={busy} aria-label="City" />
-      <input value={suburb} onChange={e => setSuburb(e.target.value)} placeholder="Suburb (e.g. Rosebank)" disabled={busy} aria-label="Suburb" />
-      <button type="submit" disabled={busy || !suburb.trim()}>
-        {busy ? 'Analysing…' : 'Find sites'}
-      </button>
-      <button
-        type="button"
-        className="settings-toggle"
-        onClick={toggleSidebar}
-        title="Data & weights"
-        aria-label="Open data and weights panel"
-      >
-        <span className="icon">tune</span>
-      </button>
+    <form className="search" onSubmit={onSubmit}>
+      <label className="field brand-field">
+        <span className="field-label">Brand</span>
+        <select value={brand} onChange={e => setBrand(e.target.value)} disabled={busy}>
+          {FAMOUS_BRANDS.map(b => (
+            <option key={b} value={b}>{b}</option>
+          ))}
+        </select>
+      </label>
+
+      <div className="field-row">
+        <label className="field">
+          <span className="field-label">City</span>
+          <input value={city} onChange={e => setCity(e.target.value)} placeholder="Johannesburg" disabled={busy} />
+        </label>
+        <label className="field">
+          <span className="field-label">Suburb</span>
+          <input value={suburb} onChange={e => setSuburb(e.target.value)} placeholder="e.g. Rosebank" disabled={busy} />
+        </label>
+      </div>
+
+      <div className="search-actions">
+        <button type="submit" className="btn-primary" disabled={busy || !suburb.trim()}>
+          {busy ? 'Analysing…' : 'Find sites'}
+        </button>
+        <button
+          type="button"
+          className="btn-icon"
+          onClick={toggleSidebar}
+          title="Data & weights"
+          aria-label="Open data and weights panel"
+        >
+          <span className="icon">tune</span>
+        </button>
+      </div>
     </form>
   );
 }

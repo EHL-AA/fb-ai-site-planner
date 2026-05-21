@@ -4,11 +4,8 @@
  */
 import React, { useCallback, useState, useEffect, useRef } from 'react';
 
-import StreamingConsole from './components/streaming-console/StreamingConsole';
 import Sidebar from './components/Sidebar';
-import SuburbSearch from './components/site-planner/SuburbSearch';
-import RankedPanel from './components/site-planner/RankedPanel';
-import ChatComposer from './components/site-planner/ChatComposer';
+import PlannerPanel from './components/site-planner/PlannerPanel';
 import { PlannerProvider } from './contexts/PlannerContext';
 import { APIProvider, useMapsLibrary } from '@vis.gl/react-google-maps';
 import { Map3D, Map3DCameraProps } from './components/map-3d';
@@ -142,22 +139,17 @@ function AppComponent() {
 
   return (
     <PlannerProvider placesLib={placesLib} geocoder={geocoder}>
-      <Sidebar />
-      <div className="streaming-console">
-        <div className="console-panel" ref={consolePanelRef}>
-          <SuburbSearch />
-          <RankedPanel />
-          <StreamingConsole />
-          <ChatComposer />
-        </div>
-        <div className="map-panel">
+      <div className="planner-shell">
+        <PlannerPanel panelRef={consolePanelRef} />
+        <main className="map-stage">
           <Map3D
             ref={element => setMap(element ?? null)}
             onCameraChange={handleCameraChange}
             {...viewProps}
           />
-        </div>
+        </main>
       </div>
+      <Sidebar />
     </PlannerProvider>
   );
 }
