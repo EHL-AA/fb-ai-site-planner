@@ -108,7 +108,7 @@ export default function SitesSidebar() {
 
   return (
     <aside className="sp-left-rail" style={{
-      width: 384, height: '100%', background: 'var(--bg-1)', borderRight: '1px solid var(--line)',
+      width: 448, height: '100%', background: 'var(--bg-1)', borderRight: '1px solid var(--line)',
       display: 'flex', flexDirection: 'column', flexShrink: 0,
     }}>
       {/* Brand bar */}
