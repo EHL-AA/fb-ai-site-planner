@@ -104,12 +104,25 @@ export class MapController {
         altitudeMode: 'RELATIVE_TO_MESH',
         label: m.showLabel ? m.label : null,
         title: m.label,
-      });
+      }) as HTMLElement & { label?: string | null };
+
       if (PinElement) {
         const background = m.kind === 'query' ? '#f5a524' : m.kind === 'retail' ? '#1f8fd6' : '#e14a3d';
         const pin = new PinElement({ background, borderColor: '#1a1208', glyphColor: '#1a1208', glyph: '', scale: 0.65 });
         marker.appendChild(pin);
       }
+
+      // Reveal the place name on hover (where the 3D map supports pointer events)
+      // and on click as a reliable fallback.
+      const show = () => { marker.label = m.label; };
+      const hide = () => { marker.label = null; };
+      marker.addEventListener('pointerenter', show);
+      marker.addEventListener('pointerover', show);
+      marker.addEventListener('pointermove', show);
+      marker.addEventListener('pointerleave', hide);
+      marker.addEventListener('pointerout', hide);
+      marker.addEventListener('gmp-click', () => { marker.label = marker.label ? null : m.label; });
+
       this.map.appendChild(marker);
     }
   }

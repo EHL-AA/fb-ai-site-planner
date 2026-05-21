@@ -70,17 +70,17 @@ function AppComponent() {
     const out: MapMarker[] = [];
     if (dataLayers.competitors) {
       for (const p of nearby(competitorsData, viewCenter, 250, 6000)) {
-        out.push({ position: { lat: p.lat, lng: p.lng, altitude: 1 }, label: p.b, showLabel: false, kind: 'competitor' });
+        out.push({ position: { lat: p.lat, lng: p.lng, altitude: 1 }, label: p.n || p.b, showLabel: false, kind: 'competitor' });
       }
     }
     if (dataLayers.retail) {
       for (const p of nearby(retailData, viewCenter, 250, 6000)) {
-        out.push({ position: { lat: p.lat, lng: p.lng, altitude: 1 }, label: p.b, showLabel: false, kind: 'retail' });
+        out.push({ position: { lat: p.lat, lng: p.lng, altitude: 1 }, label: p.n || p.b, showLabel: false, kind: 'retail' });
       }
     }
     if (queryLayer) {
       for (const p of queryLayer.points) {
-        out.push({ position: { lat: p.lat, lng: p.lng, altitude: 1 }, label: p.b, showLabel: false, kind: 'query' });
+        out.push({ position: { lat: p.lat, lng: p.lng, altitude: 1 }, label: p.n || p.b, showLabel: false, kind: 'query' });
       }
     }
     useMapStore.getState().setDataMarkers(out);
