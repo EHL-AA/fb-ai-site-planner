@@ -12,8 +12,10 @@ import DetailCard from './components/site-planner/DetailCard';
 import { PlannerProvider } from './contexts/PlannerContext';
 import { APIProvider, useMapsLibrary } from '@vis.gl/react-google-maps';
 import { Map3D, Map3DCameraProps } from './components/map-3d';
-import { useMapStore } from './lib/state';
+import { useMapStore, MapMarker } from './lib/state';
 import { MapController } from './lib/map-controller';
+import { usePlannerStore } from './lib/site-planner/data-store';
+import { loadPlacesData, nearby } from './lib/site-planner/places-data';
 
 const API_KEY = process.env.GEMINI_API_KEY as string;
 if (typeof API_KEY !== 'string') {
@@ -46,8 +48,43 @@ function AppComponent() {
   useMapsLibrary('marker');
   const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null);
   const [viewProps, setViewProps] = useState(INITIAL_VIEW_PROPS);
-  const { markers, cameraTarget, setCameraTarget, preventAutoFrame } = useMapStore();
+  const { markers, dataMarkers, cameraTarget, setCameraTarget, preventAutoFrame } = useMapStore();
   const mapController = useRef<MapController | null>(null);
+
+  // Planner data layers (your competitor / retail data + chat query results).
+  const dataLayers = usePlannerStore(s => s.dataLayers);
+  const queryLayer = usePlannerStore(s => s.queryLayer);
+  const viewCenter = usePlannerStore(s => s.viewCenter);
+  const competitorsData = usePlannerStore(s => s.competitorsData);
+  const retailData = usePlannerStore(s => s.retailData);
+
+  // Load the bundled Famous Brands datasets once.
+  useEffect(() => {
+    loadPlacesData()
+      .then(({ competitors, retail }) => usePlannerStore.getState().setPlacesData(competitors, retail))
+      .catch(err => console.warn('Failed to load places data:', err));
+  }, []);
+
+  // Recompute the data-marker layer when toggles, query, centre or data change.
+  useEffect(() => {
+    const out: MapMarker[] = [];
+    if (dataLayers.competitors) {
+      for (const p of nearby(competitorsData, viewCenter, 250, 6000)) {
+        out.push({ position: { lat: p.lat, lng: p.lng, altitude: 1 }, label: p.b, showLabel: false, kind: 'competitor' });
+      }
+    }
+    if (dataLayers.retail) {
+      for (const p of nearby(retailData, viewCenter, 250, 6000)) {
+        out.push({ position: { lat: p.lat, lng: p.lng, altitude: 1 }, label: p.b, showLabel: false, kind: 'retail' });
+      }
+    }
+    if (queryLayer) {
+      for (const p of queryLayer.points) {
+        out.push({ position: { lat: p.lat, lng: p.lng, altitude: 1 }, label: p.b, showLabel: false, kind: 'query' });
+      }
+    }
+    useMapStore.getState().setDataMarkers(out);
+  }, [dataLayers, queryLayer, viewCenter, competitorsData, retailData]);
 
   const maps3dLib = useMapsLibrary('maps3d');
   const elevationLib = useMapsLibrary('elevation');
@@ -103,21 +140,21 @@ function AppComponent() {
     }
   }, [map]);
 
-  // Reactively render ranked candidate markers and frame them on the map.
+  // Reactively render candidate markers + data-layer markers; frame candidates
+  // (or, if there are none, the data layer) unless a direct fly-to is in play.
   useEffect(() => {
     if (!mapController.current) return;
     const controller = mapController.current;
     controller.clearMap();
 
-    if (markers.length > 0) {
-      controller.addMarkers(markers);
-    }
+    if (markers.length > 0) controller.addMarkers(markers);
+    if (dataMarkers.length > 0) controller.addDataMarkers(dataMarkers);
 
-    const allEntities = markers.map(m => ({ position: m.position }));
-    if (allEntities.length > 0 && !preventAutoFrame) {
-      controller.frameEntities(allEntities, padding);
+    if (!preventAutoFrame) {
+      const toFrame = markers.length > 0 ? markers : dataMarkers;
+      if (toFrame.length > 0) controller.frameEntities(toFrame.map(m => ({ position: m.position })), padding);
     }
-  }, [markers, padding, preventAutoFrame]);
+  }, [markers, dataMarkers, padding, preventAutoFrame]);
 
   // React to direct camera-fly requests (suburb fly-to, ranked-site fly-to).
   useEffect(() => {

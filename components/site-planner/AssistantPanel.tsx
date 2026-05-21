@@ -13,13 +13,18 @@ const sparkBadge = (size: number): React.CSSProperties => ({
 });
 
 export default function AssistantPanel() {
-  const { sendChat } = usePlanner();
-  const { chat, status, features, result, suburb, brand, selectedSiteId } = usePlannerStore();
+  const { ask } = usePlanner();
+  const { chat, status, features, result, suburb, brand, selectedSiteId, competitorsData } = usePlannerStore();
   const [collapsed, setCollapsed] = useState(false);
   const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
   const busy = status === 'reasoning';
   const ready = features.length > 0;
+  const dataLoaded = competitorsData.length > 0;
+  // Chat is usable immediately (query your data) — not gated on running an analysis.
+  const suggestions = ready
+    ? ['Weight foot traffic higher', 'Avoid cannibalisation', 'Show all burger places']
+    : ['Show all burger places', 'Show all pizza places', 'Where are the KFCs'];
 
   const selected = useMemo(
     () => toDisplaySites(features, result, suburb).find(s => s.id === selectedSiteId) ?? null,
@@ -32,8 +37,8 @@ export default function AssistantPanel() {
 
   const send = (text?: string) => {
     const q = (text ?? input).trim();
-    if (!q || !ready || busy) return;
-    sendChat(q);
+    if (!q || busy) return;
+    ask(q);
     setInput('');
   };
 
@@ -86,8 +91,8 @@ export default function AssistantPanel() {
         {chat.length === 0 && !busy && (
           <div style={{ color: 'var(--ink-3)', fontSize: 13, lineHeight: 1.6, display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4 }}>
             <span style={{ ...sparkBadge(30) }}><Icon name="sparkle" size={15} stroke={2.2} /></span>
-            <p style={{ margin: 0, color: 'var(--ink-2)', fontSize: 14, fontWeight: 600 }}>Refine the ranking in plain language.</p>
-            <p style={{ margin: 0 }}>{ready ? 'Ask me to re-weight or filter the candidates — I’ll re-rank and update the list and map.' : 'Find sites for a suburb first, then ask me to re-rank them however you like.'}</p>
+            <p style={{ margin: 0, color: 'var(--ink-2)', fontSize: 14, fontWeight: 600 }}>Ask me anything about your map.</p>
+            <p style={{ margin: 0 }}>{dataLoaded ? 'Try “show all burger places” or “pizza places” to map your competitor data — no need to run an analysis first. Or pick a suburb and hit Find sites, then ask me to re-rank.' : 'Loading your Famous Brands data…'}</p>
           </div>
         )}
         {chat.map((m, i) => (
@@ -115,33 +120,31 @@ export default function AssistantPanel() {
       </div>
 
       {/* Suggested prompts */}
-      {ready && (
-        <div style={{ padding: '0 16px 8px', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {['Weight foot traffic higher', 'Avoid cannibalisation', 'Prioritise high-LSM areas'].map(p => (
-            <button key={p} onClick={() => send(p)} disabled={busy} style={{
-              background: 'transparent', border: '1px solid var(--line)', borderRadius: 999, padding: '5px 11px',
-              color: 'var(--ink-2)', cursor: busy ? 'not-allowed' : 'pointer', fontSize: 11,
-            }}>{p}</button>
-          ))}
-        </div>
-      )}
+      <div style={{ padding: '0 16px 8px', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {suggestions.map(p => (
+          <button key={p} onClick={() => send(p)} disabled={busy} style={{
+            background: 'transparent', border: '1px solid var(--line)', borderRadius: 999, padding: '5px 11px',
+            color: 'var(--ink-2)', cursor: busy ? 'not-allowed' : 'pointer', fontSize: 11,
+          }}>{p}</button>
+        ))}
+      </div>
 
       {/* Composer */}
       <div style={{ padding: '10px 14px 14px', borderTop: '1px solid var(--line)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-2)', border: '1px solid var(--line-2)', borderRadius: 12, padding: '6px 6px 6px 12px', opacity: ready ? 1 : 0.6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-2)', border: '1px solid var(--line-2)', borderRadius: 12, padding: '6px 6px 6px 12px' }}>
           <input
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
-            placeholder={ready ? 'Ask to re-rank, filter, compare…' : 'Find sites first…'}
-            disabled={!ready || busy}
+            placeholder={'Show places, re-rank, ask…'}
+            disabled={busy}
             style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--ink)', fontSize: 13, padding: '6px 0', minWidth: 0 }}
           />
-          <button onClick={() => send()} disabled={!ready || busy || !input.trim()} aria-label="Send" style={{
-            background: input.trim() && ready && !busy ? 'linear-gradient(135deg, var(--accent), var(--accent-2))' : 'var(--bg-3)',
+          <button onClick={() => send()} disabled={busy || !input.trim()} aria-label="Send" style={{
+            background: input.trim() && !busy ? 'linear-gradient(135deg, var(--accent), var(--accent-2))' : 'var(--bg-3)',
             border: 'none', borderRadius: 8, padding: '7px 10px',
-            color: input.trim() && ready && !busy ? 'var(--accent-ink)' : 'var(--ink-3)',
-            cursor: input.trim() && ready && !busy ? 'pointer' : 'not-allowed', display: 'inline-grid', placeItems: 'center',
+            color: input.trim() && !busy ? 'var(--accent-ink)' : 'var(--ink-3)',
+            cursor: input.trim() && !busy ? 'pointer' : 'not-allowed', display: 'inline-grid', placeItems: 'center',
           }}><Icon name="send" size={13} stroke={2.2} /></button>
         </div>
       </div>

@@ -29,21 +29,27 @@ export interface MapMarker {
   showLabel: boolean;
   /** 1-based rank from the site-planner ranking; controls marker label + colour. */
   rank?: number;
+  /** Marker layer kind; controls styling. Candidate ranking by default. */
+  kind?: 'candidate' | 'competitor' | 'retail' | 'query';
 }
 
 export const useMapStore = create<{
-  markers: MapMarker[];
+  markers: MapMarker[];        // ranked candidate sites (auto-framed)
+  dataMarkers: MapMarker[];    // your data layers + chat query results
   cameraTarget: Map3DCameraProps | null;
   preventAutoFrame: boolean;
   setMarkers: (markers: MapMarker[]) => void;
+  setDataMarkers: (markers: MapMarker[]) => void;
   clearMarkers: () => void;
   setCameraTarget: (target: Map3DCameraProps | null) => void;
   setPreventAutoFrame: (prevent: boolean) => void;
 }>(set => ({
   markers: [],
+  dataMarkers: [],
   cameraTarget: null,
   preventAutoFrame: false,
   setMarkers: markers => set({ markers }),
+  setDataMarkers: dataMarkers => set({ dataMarkers }),
   clearMarkers: () => set({ markers: [] }),
   setCameraTarget: target => set({ cameraTarget: target }),
   setPreventAutoFrame: prevent => set({ preventAutoFrame: prevent }),

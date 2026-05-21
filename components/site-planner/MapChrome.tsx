@@ -13,8 +13,9 @@ function LegendRow({ swatch, label }: { swatch: React.ReactNode; label: string }
 }
 
 export default function MapChrome() {
-  const { city, suburb, features } = usePlannerStore();
+  const { city, suburb, features, dataLayers, toggleLayer, competitorsData, retailData } = usePlannerStore();
   const hasResult = features.length > 0;
+  const hasData = competitorsData.length > 0 || retailData.length > 0;
 
   const recenter = () => {
     const ms = useMapStore.getState();
@@ -30,6 +31,29 @@ export default function MapChrome() {
           <Icon name="map" size={14} style={{ color: 'var(--ink-3)' }} />
           <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>{city || 'Map'} ›</span>
           <span style={{ fontSize: 12, color: 'var(--ink)', fontWeight: 600 }}>{suburb || 'pick a suburb'}</span>
+        </div>
+      )}
+
+      {/* Data layer toggles (top-left, under breadcrumb) */}
+      {hasData && (
+        <div style={{ position: 'absolute', left: 16, top: 62, zIndex: 30, display: 'flex', gap: 2, padding: 4, ...glass }}>
+          {([
+            { key: 'competitors' as const, icon: 'users' as const, label: 'Competitors', dot: '#e14a3d' },
+            { key: 'retail' as const, icon: 'store' as const, label: 'Retail anchors', dot: '#1f8fd6' },
+          ]).map(t => {
+            const active = dataLayers[t.key];
+            return (
+              <button key={t.key} onClick={() => toggleLayer(t.key)} title={`${active ? 'Hide' : 'Show'} ${t.label.toLowerCase()}`} style={{
+                display: 'flex', alignItems: 'center', gap: 7, height: 30, padding: '0 11px', borderRadius: 8, cursor: 'pointer',
+                background: active ? 'var(--accent)' : 'transparent',
+                color: active ? 'var(--accent-ink)' : 'var(--ink-2)',
+                border: `1px solid ${active ? 'var(--accent)' : 'transparent'}`, fontSize: 12, fontWeight: 500,
+              }}>
+                <span style={{ width: 8, height: 8, borderRadius: 8, background: active ? 'var(--accent-ink)' : t.dot }} />
+                {t.label}
+              </button>
+            );
+          })}
         </div>
       )}
 

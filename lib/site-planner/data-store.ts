@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { useMapStore } from '@/lib/state';
+import { PlaceRec } from './places-data';
 import {
   CompetitorRecord, StoreRecord, DemographicRecord,
   CandidateNode, FeatureVector, RankedResult, ScoringWeights, DEFAULT_WEIGHTS,
@@ -7,6 +8,9 @@ import {
 
 export type AnalysisStatus = 'idle' | 'detecting' | 'reasoning' | 'done' | 'error';
 export interface ChatMessage { role: 'user' | 'agent'; text: string; }
+export interface DataLayers { competitors: boolean; retail: boolean; }
+export interface QueryLayer { label: string; points: PlaceRec[]; }
+export interface LatLngLite { lat: number; lng: number; }
 
 interface PlannerState {
   brand: string;
@@ -27,6 +31,13 @@ interface PlannerState {
   selectedSiteId: string | null;
   chat: ChatMessage[];
 
+  // Bundled Famous Brands datasets + map layers
+  competitorsData: PlaceRec[];
+  retailData: PlaceRec[];
+  dataLayers: DataLayers;
+  queryLayer: QueryLayer | null;
+  viewCenter: LatLngLite | null;
+
   setBrand: (b: string) => void;
   setLocation: (city: string, suburb: string) => void;
   setWeights: (w: ScoringWeights) => void;
@@ -41,6 +52,10 @@ interface PlannerState {
   setError: (m: string | null) => void;
   selectSite: (id: string | null) => void;
   addChat: (m: ChatMessage) => void;
+  setPlacesData: (competitors: PlaceRec[], retail: PlaceRec[]) => void;
+  toggleLayer: (key: keyof DataLayers) => void;
+  setQueryLayer: (q: QueryLayer | null) => void;
+  setViewCenter: (c: LatLngLite | null) => void;
   reset: () => void;
 }
 
@@ -60,6 +75,11 @@ export const usePlannerStore = create<PlannerState>(set => ({
   errorMessage: null,
   selectedSiteId: null,
   chat: [],
+  competitorsData: [],
+  retailData: [],
+  dataLayers: { competitors: false, retail: false },
+  queryLayer: null,
+  viewCenter: null,
 
   setBrand: brand => set({ brand }),
   setLocation: (city, suburb) => set({ city, suburb }),
@@ -75,9 +95,13 @@ export const usePlannerStore = create<PlannerState>(set => ({
   setError: errorMessage => set({ errorMessage }),
   selectSite: selectedSiteId => set({ selectedSiteId }),
   addChat: m => set(s => ({ chat: [...s.chat, m] })),
+  setPlacesData: (competitorsData, retailData) => set({ competitorsData, retailData }),
+  toggleLayer: key => set(s => ({ dataLayers: { ...s.dataLayers, [key]: !s.dataLayers[key] } })),
+  setQueryLayer: queryLayer => set({ queryLayer }),
+  setViewCenter: viewCenter => set({ viewCenter }),
   reset: () => {
     useMapStore.getState().setMarkers([]);
-    set({ candidates: [], features: [], result: null, status: 'idle', errorMessage: null, selectedSiteId: null, chat: [], uploadErrors: [] });
+    set({ candidates: [], features: [], result: null, status: 'idle', errorMessage: null, selectedSiteId: null, chat: [], uploadErrors: [], queryLayer: null });
   },
 }));
 

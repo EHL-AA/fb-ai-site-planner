@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Raw source spreadsheets (the app uses the derived JSON in public/data/)
+*.xlsx
+
 # Environment / secrets
 .env
 .env.*

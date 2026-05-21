@@ -93,6 +93,28 @@ export class MapController {
   }
 
   /**
+   * Adds lightweight data-layer markers (your competitor / retail data and chat
+   * query results) as small coloured pins, without labels. Not auto-framed.
+   */
+  addDataMarkers(markers: MapMarker[]) {
+    const PinElement = (google.maps as any).marker?.PinElement;
+    for (const m of markers) {
+      const marker = new this.maps3dLib.Marker3DInteractiveElement({
+        position: m.position,
+        altitudeMode: 'RELATIVE_TO_MESH',
+        label: m.showLabel ? m.label : null,
+        title: m.label,
+      });
+      if (PinElement) {
+        const background = m.kind === 'query' ? '#f5a524' : m.kind === 'retail' ? '#1f8fd6' : '#e14a3d';
+        const pin = new PinElement({ background, borderColor: '#1a1208', glyphColor: '#1a1208', glyph: '', scale: 0.65 });
+        marker.appendChild(pin);
+      }
+      this.map.appendChild(marker);
+    }
+  }
+
+  /**
    * Animate the camera to a specific set of camera properties.
    * @param cameraProps - The target camera position, range, tilt, etc.
    */
