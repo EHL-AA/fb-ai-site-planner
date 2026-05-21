@@ -78,7 +78,7 @@ export class MapController {
       const PinElement = (google.maps as any).marker?.PinElement;
       if (hasRank && PinElement) {
         const rank = markerData.rank as number;
-        const background = rank === 1 ? '#f4b400' : rank <= 3 ? '#0f9d58' : '#5f6368';
+        const background = rank === 1 ? '#f5a524' : rank <= 3 ? '#ff7a1a' : '#8a8278';
         const pin = new PinElement({
           background,
           borderColor: '#202124',
@@ -107,7 +107,11 @@ export class MapController {
       }) as HTMLElement & { label?: string | null };
 
       if (PinElement) {
-        const background = m.kind === 'query' ? '#f5a524' : m.kind === 'retail' ? '#1f8fd6' : '#e14a3d';
+        const background =
+          m.kind === 'existing' ? '#34c759' :
+          m.kind === 'query' ? '#f5a524' :
+          m.kind === 'retail' ? '#1f8fd6' :
+          '#e14a3d';
         const pin = new PinElement({ background, borderColor: '#1a1208', glyphColor: '#1a1208', glyph: '', scale: 0.65 });
         marker.appendChild(pin);
       }

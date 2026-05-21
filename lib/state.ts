@@ -30,7 +30,7 @@ export interface MapMarker {
   /** 1-based rank from the site-planner ranking; controls marker label + colour. */
   rank?: number;
   /** Marker layer kind; controls styling. Candidate ranking by default. */
-  kind?: 'candidate' | 'competitor' | 'retail' | 'query';
+  kind?: 'candidate' | 'competitor' | 'retail' | 'query' | 'existing';
 }
 
 export const useMapStore = create<{

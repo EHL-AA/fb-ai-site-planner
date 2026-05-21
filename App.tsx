@@ -57,6 +57,7 @@ function AppComponent() {
   const viewCenter = usePlannerStore(s => s.viewCenter);
   const competitorsData = usePlannerStore(s => s.competitorsData);
   const retailData = usePlannerStore(s => s.retailData);
+  const existingStores = usePlannerStore(s => s.existingStores);
 
   // Load the bundled Famous Brands datasets once.
   useEffect(() => {
@@ -68,6 +69,11 @@ function AppComponent() {
   // Recompute the data-marker layer when toggles, query, centre or data change.
   useEffect(() => {
     const out: MapMarker[] = [];
+    if (dataLayers.existing) {
+      for (const p of existingStores) {
+        out.push({ position: { lat: p.lat, lng: p.lng, altitude: 1 }, label: p.n || p.b, showLabel: false, kind: 'existing' });
+      }
+    }
     if (dataLayers.competitors) {
       for (const p of nearby(competitorsData, viewCenter, 250, 6000)) {
         out.push({ position: { lat: p.lat, lng: p.lng, altitude: 1 }, label: p.n || p.b, showLabel: false, kind: 'competitor' });
@@ -84,7 +90,7 @@ function AppComponent() {
       }
     }
     useMapStore.getState().setDataMarkers(out);
-  }, [dataLayers, queryLayer, viewCenter, competitorsData, retailData]);
+  }, [dataLayers, queryLayer, viewCenter, competitorsData, retailData, existingStores]);
 
   const maps3dLib = useMapsLibrary('maps3d');
   const elevationLib = useMapsLibrary('elevation');

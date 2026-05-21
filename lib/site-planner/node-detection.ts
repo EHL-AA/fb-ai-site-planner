@@ -1,5 +1,29 @@
-import { gridPoints, clusterPoints, Bounds, WeightedPoint } from './geo';
+import { gridPoints, clusterPoints, Bounds, WeightedPoint, LatLng } from './geo';
 import { CandidateNode, RawPlace } from './types';
+import { PlaceRec } from './places-data';
+
+/** Find the selected brand's existing outlets near a centre via Places text search. */
+export async function findBrandStores(
+  placesLib: google.maps.PlacesLibrary,
+  brand: string,
+  center: LatLng,
+  radiusM = 12000,
+): Promise<PlaceRec[]> {
+  try {
+    const { places } = await placesLib.Place.searchByText({
+      textQuery: brand,
+      fields: ['location', 'displayName'],
+      locationBias: { center: { lat: center.lat, lng: center.lng }, radius: radiusM },
+      maxResultCount: 20,
+    });
+    return (places ?? [])
+      .filter(p => p.location)
+      .map(p => ({ b: brand, n: p.displayName ?? brand, a: '', lat: p.location!.lat(), lng: p.location!.lng() }));
+  } catch (e) {
+    console.warn('findBrandStores failed:', e);
+    return [];
+  }
+}
 
 const SEARCH_TYPES = ['restaurant', 'shopping_mall', 'supermarket', 'cafe', 'store', 'transit_station'];
 

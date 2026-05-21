@@ -13,9 +13,9 @@ function LegendRow({ swatch, label }: { swatch: React.ReactNode; label: string }
 }
 
 export default function MapChrome() {
-  const { city, suburb, features, dataLayers, toggleLayer, competitorsData, retailData } = usePlannerStore();
+  const { city, suburb, features, dataLayers, toggleLayer, competitorsData, retailData, existingStores, brand } = usePlannerStore();
   const hasResult = features.length > 0;
-  const hasData = competitorsData.length > 0 || retailData.length > 0;
+  const hasData = competitorsData.length > 0 || retailData.length > 0 || existingStores.length > 0;
 
   const recenter = () => {
     const ms = useMapStore.getState();
@@ -38,9 +38,10 @@ export default function MapChrome() {
       {hasData && (
         <div style={{ position: 'absolute', left: 16, top: 62, zIndex: 30, display: 'flex', gap: 2, padding: 4, ...glass }}>
           {([
-            { key: 'competitors' as const, icon: 'users' as const, label: 'Competitors', dot: '#e14a3d' },
-            { key: 'retail' as const, icon: 'store' as const, label: 'Retail anchors', dot: '#1f8fd6' },
-          ]).map(t => {
+            { key: 'existing' as const, icon: 'store' as const, label: `Existing ${brand}`, dot: '#34c759', show: existingStores.length > 0 },
+            { key: 'competitors' as const, icon: 'users' as const, label: 'Competitors', dot: '#e14a3d', show: competitorsData.length > 0 },
+            { key: 'retail' as const, icon: 'store' as const, label: 'Retail anchors', dot: '#1f8fd6', show: retailData.length > 0 },
+          ]).filter(t => t.show).map(t => {
             const active = dataLayers[t.key];
             return (
               <button key={t.key} onClick={() => toggleLayer(t.key)} title={`${active ? 'Hide' : 'Show'} ${t.label.toLowerCase()}`} style={{
@@ -71,9 +72,10 @@ export default function MapChrome() {
       {hasResult && (
         <div style={{ position: 'absolute', left: 16, bottom: 16, zIndex: 30, padding: '10px 12px', fontSize: 11, color: 'var(--ink-2)', display: 'flex', flexDirection: 'column', gap: 5, minWidth: 160, ...glass }}>
           <div style={{ fontSize: 10, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 2 }}>Legend</div>
-          <LegendRow swatch={<div style={{ width: 14, height: 14, borderRadius: 4, background: 'var(--accent)' }} />} label="#1 recommended" />
-          <LegendRow swatch={<div style={{ width: 14, height: 14, borderRadius: 4, background: '#0f9d58' }} />} label="Top 3 candidate" />
-          <LegendRow swatch={<div style={{ width: 14, height: 14, borderRadius: 4, background: '#5f6368' }} />} label="Other candidate" />
+          <LegendRow swatch={<div style={{ width: 14, height: 14, borderRadius: 4, background: '#f5a524' }} />} label="#1 recommended" />
+          <LegendRow swatch={<div style={{ width: 14, height: 14, borderRadius: 4, background: '#ff7a1a' }} />} label="Top 3 candidate" />
+          <LegendRow swatch={<div style={{ width: 14, height: 14, borderRadius: 4, background: '#8a8278' }} />} label="Other candidate" />
+          {existingStores.length > 0 && <LegendRow swatch={<div style={{ width: 14, height: 14, borderRadius: 4, background: '#34c759' }} />} label={`Existing ${brand}`} />}
         </div>
       )}
 

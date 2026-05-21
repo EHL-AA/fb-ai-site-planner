@@ -8,7 +8,7 @@ import {
 
 export type AnalysisStatus = 'idle' | 'detecting' | 'reasoning' | 'done' | 'error';
 export interface ChatMessage { role: 'user' | 'agent'; text: string; }
-export interface DataLayers { competitors: boolean; retail: boolean; }
+export interface DataLayers { existing: boolean; competitors: boolean; retail: boolean; }
 export interface QueryLayer { label: string; points: PlaceRec[]; }
 export interface LatLngLite { lat: number; lng: number; }
 
@@ -34,6 +34,7 @@ interface PlannerState {
   // Bundled Famous Brands datasets + map layers
   competitorsData: PlaceRec[];
   retailData: PlaceRec[];
+  existingStores: PlaceRec[];   // selected brand's existing outlets (from Places)
   dataLayers: DataLayers;
   queryLayer: QueryLayer | null;
   viewCenter: LatLngLite | null;
@@ -53,6 +54,7 @@ interface PlannerState {
   selectSite: (id: string | null) => void;
   addChat: (m: ChatMessage) => void;
   setPlacesData: (competitors: PlaceRec[], retail: PlaceRec[]) => void;
+  setExistingStores: (s: PlaceRec[]) => void;
   toggleLayer: (key: keyof DataLayers) => void;
   setQueryLayer: (q: QueryLayer | null) => void;
   setViewCenter: (c: LatLngLite | null) => void;
@@ -77,7 +79,8 @@ export const usePlannerStore = create<PlannerState>(set => ({
   chat: [],
   competitorsData: [],
   retailData: [],
-  dataLayers: { competitors: false, retail: false },
+  existingStores: [],
+  dataLayers: { existing: true, competitors: false, retail: false },
   queryLayer: null,
   viewCenter: null,
 
@@ -96,6 +99,7 @@ export const usePlannerStore = create<PlannerState>(set => ({
   selectSite: selectedSiteId => set({ selectedSiteId }),
   addChat: m => set(s => ({ chat: [...s.chat, m] })),
   setPlacesData: (competitorsData, retailData) => set({ competitorsData, retailData }),
+  setExistingStores: existingStores => set({ existingStores }),
   toggleLayer: key => set(s => ({ dataLayers: { ...s.dataLayers, [key]: !s.dataLayers[key] } })),
   setQueryLayer: queryLayer => set({ queryLayer }),
   setViewCenter: viewCenter => set({ viewCenter }),

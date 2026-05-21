@@ -1,11 +1,11 @@
 import React, { createContext, FC, ReactNode, useContext, useCallback } from 'react';
-import { detectCommercialNodes } from '@/lib/site-planner/node-detection';
+import { detectCommercialNodes, findBrandStores } from '@/lib/site-planner/node-detection';
 import { computeFeatures } from '@/lib/site-planner/features';
 import { analyzeSuburb, rerank } from '@/lib/site-planner/reasoning';
-import { queryPlaces } from '@/lib/site-planner/places-data';
+import { queryPlaces, PlaceRec } from '@/lib/site-planner/places-data';
 import { usePlannerStore } from '@/lib/site-planner/data-store';
 import { useMapStore, MapMarker } from '@/lib/state';
-import { FeatureVector, RankedResult, CompetitorRecord } from '@/lib/site-planner/types';
+import { FeatureVector, RankedResult, CompetitorRecord, StoreRecord } from '@/lib/site-planner/types';
 
 interface PlannerContextValue {
   placesLib: google.maps.PlacesLibrary | null;
@@ -40,12 +40,14 @@ export const PlannerProvider: FC<{
     s.setStatus('detecting');
     try {
       const query = `${suburb}, ${city}`;
+      let center: { lat: number; lng: number } | null = null;
       const geo = await geocoder.geocode({ address: query });
       if (geo.results?.[0]) {
         const loc = geo.results[0].geometry.location;
-        s.setViewCenter({ lat: loc.lat(), lng: loc.lng() });
+        center = { lat: loc.lat(), lng: loc.lng() };
+        s.setViewCenter(center);
         useMapStore.getState().setCameraTarget({
-          center: { lat: loc.lat(), lng: loc.lng(), altitude: 5000 },
+          center: { lat: center.lat, lng: center.lng, altitude: 5000 },
           range: 15000, tilt: 25, heading: 0, roll: 0,
         });
       }
@@ -54,12 +56,25 @@ export const PlannerProvider: FC<{
       if (!nodes.length) { s.setError(`No commercial nodes found in ${query}. Try a larger or busier suburb.`); s.setStatus('error'); return; }
       s.setCandidates(nodes);
 
+      // The selected brand's existing outlets near the suburb (green layer + cannibalisation).
+      let existingStores: PlaceRec[] = [];
+      if (center) {
+        existingStores = await findBrandStores(placesLib, s.brand, center);
+        s.setExistingStores(existingStores);
+      }
+
       // Use uploaded competitor CSV if present, else the bundled FB competitor data.
       const competitors: CompetitorRecord[] = s.competitors.length
         ? s.competitors
         : s.competitorsData.map(p => ({ name: p.n, lat: p.lat, lng: p.lng, brand: p.b }));
 
-      const features = computeFeatures(nodes, { competitors, stores: s.stores, demographics: s.demographics }, suburb);
+      // Own stores for cannibalisation = uploaded CSV + the brand's existing outlets we found.
+      const stores: StoreRecord[] = [
+        ...s.stores,
+        ...existingStores.map(p => ({ name: p.n, lat: p.lat, lng: p.lng })),
+      ];
+
+      const features = computeFeatures(nodes, { competitors, stores, demographics: s.demographics }, suburb);
       s.setFeatures(features);
       useMapStore.getState().setMarkers(markersFor(features));
 
