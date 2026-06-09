@@ -25,7 +25,7 @@ if (typeof API_KEY !== 'string') {
 // Google Maps Platform key. Prefer your own billed key via MAPS_API_KEY in .env;
 // falls back to the shared AI Studio demo key (low daily Places quota).
 const MAPS_API_KEY =
-  process.env.MAPS_API_KEY || 'AIzaSyCYTvt7YMcKjSNTnBa42djlndCeDvZHkr0';
+  process.env.MAPS_API_KEY 
 
 const INITIAL_VIEW_PROPS = {
   center: { lat: -26.1076, lng: 28.0567, altitude: 1000 }, // Sandton, Johannesburg
