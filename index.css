@@ -1157,6 +1157,22 @@ gmp-place-details-compact {
   --bad: #ef6a5e;
 }
 
+/* Login screen inputs: keep the warm-dark theme even when the browser
+   autofills (which otherwise paints a light lavender background). */
+.sp-auth-input::placeholder {
+  color: var(--ink-4, #5a534b);
+}
+.sp-auth-input:focus {
+  border-color: var(--accent, #f5a524);
+}
+.sp-auth-input:-webkit-autofill,
+.sp-auth-input:-webkit-autofill:hover,
+.sp-auth-input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--ink, #f5f0e8);
+  caret-color: var(--ink, #f5f0e8);
+  transition: background-color 9999s ease-in-out 0s;
+}
+
 html,
 body {
   margin: 0;

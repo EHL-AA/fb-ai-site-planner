@@ -40,7 +40,9 @@
       "Bash(curl -s -o /dev/null -w \"dev: HTTP %{http_code}\\\\n\" http://localhost:3000/)",
       "Bash(curl -s -o /dev/null -w \"app: HTTP %{http_code}\\\\n\" http://localhost:3000/)",
       "Bash(curl -s \"http://localhost:3000/components/site-planner/SitesSidebar.tsx\")",
-      "Bash(python3 -)"
+      "Bash(python3 -)",
+      "Bash(ls -la *.json)",
+      "Bash(find . -path ./node_modules -prune -o -iname \"*firebase*\" -print)"
     ]
   }
 }

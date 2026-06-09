@@ -10,6 +10,9 @@ import AssistantPanel from './components/site-planner/AssistantPanel';
 import MapChrome from './components/site-planner/MapChrome';
 import DetailCard from './components/site-planner/DetailCard';
 import { PlannerProvider } from './contexts/PlannerContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import LoginScreen from './components/auth/LoginScreen';
+import UserMenu from './components/auth/UserMenu';
 import { APIProvider, useMapsLibrary } from '@vis.gl/react-google-maps';
 import { Map3D, Map3DCameraProps } from './components/map-3d';
 import { useMapStore, MapMarker } from './lib/state';
@@ -190,9 +193,40 @@ function AppComponent() {
         </main>
         <AssistantPanel />
       </div>
+      <UserMenu />
       <Sidebar />
     </PlannerProvider>
   );
+}
+
+/**
+ * Gates the app behind Firebase Authentication: shows a brief loading state
+ * while the initial auth check resolves, the login screen when signed out, and
+ * the full planner once a user is signed in.
+ */
+function AuthGate() {
+  const { user, initializing } = useAuth();
+
+  if (initializing) {
+    return (
+      <div
+        style={{
+          position: 'fixed',
+          inset: 0,
+          display: 'grid',
+          placeItems: 'center',
+          background: 'var(--bg, #0c0a08)',
+          color: 'var(--ink-3, #8a8278)',
+          fontSize: 14,
+        }}>
+        Loading…
+      </div>
+    );
+  }
+
+  if (!user) return <LoginScreen />;
+
+  return <AppComponent />;
 }
 
 /**
@@ -201,12 +235,14 @@ function AppComponent() {
 function App() {
   return (
     <div className="App">
-      <APIProvider
-        version={'alpha'}
-        apiKey={MAPS_API_KEY}
-        solutionChannel={'gmp_aistudio_itineraryapplet_v1.0.0'}>
-        <AppComponent />
-      </APIProvider>
+      <AuthProvider>
+        <APIProvider
+          version={'alpha'}
+          apiKey={MAPS_API_KEY}
+          solutionChannel={'gmp_aistudio_itineraryapplet_v1.0.0'}>
+          <AuthGate />
+        </APIProvider>
+      </AuthProvider>
     </div>
   );
 }
