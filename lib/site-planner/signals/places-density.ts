@@ -49,11 +49,35 @@ export const placesDensitySource: SignalSource<'density'> = {
   id: 'density',
   label: DENSITY_SOURCE_LABEL,
   async enrich(nodes: CandidateNode[], ctx: SignalContext): Promise<Signal<DensitySignal | null>[]> {
+    if (nodes.length === 0) return [];
+
+    // Probe with first node and first type to detect API disabled before fan-out
+    let probeResult: number | null | 'disabled' = null;
+    try {
+      probeResult = await countPlaces(ctx, { lat: nodes[0].lat, lng: nodes[0].lng }, DENSITY_TYPES[0]);
+    } catch (e) {
+      console.warn('probe call failed', e);
+    }
+    if (probeResult === 'disabled') {
+      const note = 'Enable Places Aggregate API on the Maps project (Cloud console → APIs) to collect density counts.';
+      return nodes.map(() => unavailable<DensitySignal>(DENSITY_SOURCE_LABEL, note));
+    }
+
     let disabled = false;
-    const counts: Array<Record<string, number> | null> = await Promise.all(nodes.map(async node => {
+    const counts: Array<Record<string, number> | null> = await Promise.all(nodes.map(async (node, nodeIdx) => {
       const c: Record<string, number> = {};
       let any = false;
-      await Promise.all(DENSITY_TYPES.map(async t => {
+
+      // Reuse probe result for first node, first type
+      if (nodeIdx === 0 && probeResult !== null) {
+        c[DENSITY_TYPES[0]] = probeResult;
+        any = true;
+      }
+
+      await Promise.all(DENSITY_TYPES.map(async (t, typeIdx) => {
+        // Skip first type of first node since we already probed it
+        if (nodeIdx === 0 && typeIdx === 0) return;
+
         try {
           const n = await countPlaces(ctx, { lat: node.lat, lng: node.lng }, t);
           if (n === 'disabled') { disabled = true; return; }
@@ -62,6 +86,7 @@ export const placesDensitySource: SignalSource<'density'> = {
       }));
       return any ? c : null;
     }));
+
     if (disabled || counts.every(c => c === null)) {
       const note = disabled
         ? 'Enable Places Aggregate API on the Maps project (Cloud console → APIs) to collect density counts.'

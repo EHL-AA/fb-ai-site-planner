@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { densityIndices, placesDensitySource, DENSITY_TYPES } from './places-density';
 import { CallBudget, SignalContext } from './types';
 
@@ -38,5 +38,70 @@ describe('placesDensitySource', () => {
     const [sig] = await placesDensitySource.enrich([node('a')], ctxWith(fetchImpl));
     expect(sig.provenance).toBe('unavailable');
     expect(sig.note).toMatch(/Enable Places Aggregate API/);
+  });
+  it('returns mixed measured/unavailable signals for multi-node with per-node failures', async () => {
+    const fetchImpl = async (_: string, init: any) => {
+      const body = JSON.parse(init.body);
+      const lat = body.filter.locationFilter.circle.latLng.latitude;
+      // Node A (lat -26.1) succeeds
+      if (lat === -26.1) {
+        return { ok: true, json: async () => ({ count: '5' }) } as any;
+      }
+      // Node B (lat -26.2) fails
+      return { ok: false, status: 500, json: async () => ({}) } as any;
+    };
+    const nodeA = node('a');
+    const nodeB = { ...node('b'), lat: -26.2 };
+    const sigs = await placesDensitySource.enrich([nodeA, nodeB], ctxWith(fetchImpl));
+    expect(sigs[0].provenance).toBe('measured');
+    expect(sigs[1].provenance).toBe('unavailable');
+  });
+  it('respects budget exhaustion and returns unavailable without calling fetchImpl', async () => {
+    const budget = new CallBudget(0);
+    const ctx = {
+      selection: { placeId: 'p', suburb: 'S', city: 'C', center: { lat: -26.1, lng: 28.05 }, viewport: { north: 0, south: 0, east: 0, west: 0 } },
+      mapsApiKey: 'k',
+      fetchImpl: async () => { throw new Error('fetchImpl should not be called'); },
+      budget,
+      now: new Date(),
+      retail: [],
+      footTrafficRows: [],
+    };
+    const sigs = await placesDensitySource.enrich([node('a')], ctx);
+    expect(sigs[0].provenance).toBe('unavailable');
+  });
+  it('short-circuits all nodes on probe SERVICE_DISABLED, using only 1 budget', async () => {
+    const budget = new CallBudget();
+    const fetchImpl = async () => ({
+      ok: false,
+      status: 403,
+      json: async () => ({ error: { status: 'PERMISSION_DENIED', details: [{ reason: 'SERVICE_DISABLED' }] } }),
+    } as any);
+    const ctx = {
+      selection: { placeId: 'p', suburb: 'S', city: 'C', center: { lat: -26.1, lng: 28.05 }, viewport: { north: 0, south: 0, east: 0, west: 0 } },
+      mapsApiKey: 'k',
+      fetchImpl,
+      budget,
+      now: new Date(),
+      retail: [],
+      footTrafficRows: [],
+    };
+    const sigs = await placesDensitySource.enrich([node('a'), node('b')], ctx);
+    expect(sigs[0].provenance).toBe('unavailable');
+    expect(sigs[1].provenance).toBe('unavailable');
+    expect(budget.used).toBe(1);
+  });
+  it('silences console.warn on countPlaces errors', async () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const fetchImpl = async () => {
+        throw new Error('network error');
+      };
+      const sigs = await placesDensitySource.enrich([node('a')], ctxWith(fetchImpl));
+      expect(sigs[0].provenance).toBe('unavailable');
+      expect(spy).toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
