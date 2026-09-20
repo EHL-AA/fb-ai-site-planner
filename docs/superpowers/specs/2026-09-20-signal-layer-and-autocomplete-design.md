@@ -99,20 +99,23 @@ export interface Signal<T> {
 export interface SignalContext {
   selection: SuburbSelection;
   mapsApiKey: string;
-  fetchImpl?: typeof fetch;            // injected for tests
+  fetchImpl: typeof fetch;             // required (no ambient fetch fallback; tests inject a fake)
   budget: CallBudget;                  // tracks API calls per run
+  now: Date;
+  retail: PlaceRec[];                  // bundled retail anchors (public/data/retail.json)
+  footTrafficRows: FootTrafficRecord[]; // uploaded vendor foot-traffic rows (may be empty)
 }
 
-export interface SignalSource<K extends keyof SignalBundle> {
+export interface SignalSource<K extends keyof NodeSignals> {
   id: K;
   label: string;
   /** Enrich every node. Must never throw; return `unavailable` signals instead. */
-  enrich(nodes: CandidateNode[], ctx: SignalContext): Promise<SignalBundle[K][]>;
+  enrich(nodes: CandidateNode[], ctx: SignalContext): Promise<NodeSignals[K][]>;
 }
 ```
 
-`SignalBundle` is the union of per-source outputs keyed by source id. Each
-source returns one entry per node in the same order.
+`NodeSignals` (defined in 3.5) is the per-node record of signals keyed by
+source id. Each source returns one entry per node in the same order.
 
 ### 3.2 Sources
 
@@ -140,11 +143,15 @@ parallel with `Promise.allSettled`. A `SERVICE_DISABLED` response marks every
 `placesDensity` signal `unavailable` with note "Enable Places Aggregate API on
 the Maps project." and does **not** fail the run.
 
+Before fanning out, the source probes with a single call (first node, first
+type). If that probe comes back `SERVICE_DISABLED`, it short-circuits: no
+further calls are made and every node's `density` signal is `unavailable`.
+
 **Census.** `public/data/census-wards.json`: `[{ ward, muni, lat, lng,
 population, households, areaKm2 }]` prepared offline from Stats SA SuperWEB2
 (ward-level, Census 2022) + MDB 2020 ward centroids. If the file is missing or
 empty, signals are `unavailable`. Data-prep script lives in
-`scripts/prepare-census.ts` and is documented in the README.
+`scripts/prepare-census.mjs` and is documented in the README.
 
 ### 3.3 Foot-traffic adapter
 
