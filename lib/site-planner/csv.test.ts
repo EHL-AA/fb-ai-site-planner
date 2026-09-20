@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseCompetitors, parseStores, parseDemographics } from './csv';
+import { parseCompetitors, parseStores, parseDemographics, parseFootTraffic } from './csv';
 
 describe('parseCompetitors', () => {
   it('maps standard headers and coerces numbers', () => {
@@ -62,5 +62,13 @@ describe('parseDemographics', () => {
     const { errors } = parseDemographics(csv);
     expect(errors).toHaveLength(1);
     expect(errors[0]).toContain('row 1');
+  });
+});
+
+describe('parseFootTraffic', () => {
+  it('parses lat/lng/daily_visits with optional peak_hour', () => {
+    const { records, errors } = parseFootTraffic('lat,lng,daily_visits,peak_hour\n-26.1,28.05,4200,13\n-26.2,28.2,abc,');
+    expect(records).toEqual([{ lat: -26.1, lng: 28.05, dailyVisits: 4200, peakHour: 13 }]);
+    expect(errors).toHaveLength(1);
   });
 });
