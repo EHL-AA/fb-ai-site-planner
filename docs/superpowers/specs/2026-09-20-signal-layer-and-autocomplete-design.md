@@ -178,10 +178,10 @@ added by implementing the interface only.
 ### 3.4 Orchestration
 
 `lib/site-planner/signals/index.ts` exports
-`gatherSignals(nodes, ctx): Promise<SignalBundle[]>`. It runs all sources with
+`gatherSignals(nodes, ctx): Promise<NodeSignals[]>`. It runs all sources with
 `Promise.allSettled`; a rejected source becomes `unavailable` for every node
 (defensive — sources are also required not to throw). It then calls
-`composeFeatures(nodes, bundles, inputs)` (the successor of
+`composeFeatures(nodes, signals, inputs, suburb)` (the successor of
 `computeFeatures`), which produces the extended `FeatureVector`.
 
 ### 3.5 Extended feature vector

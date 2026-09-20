@@ -43,7 +43,7 @@ both know how much to trust it:
 | Places Aggregate density | Daytime/evening place-type counts within 1 km | measured (unavailable until the Places Aggregate API is enabled) |
 | Retail-mix affluence | Ratio of premium to value anchor brands within 2 km | proxy |
 | Census wards | Nearest Stats SA ward's population/household density | measured (unavailable until the census data file is prepared — see below) |
-| Foot traffic | Vendor or user-uploaded visit counts | measured if a CSV is uploaded, otherwise unavailable |
+| Foot traffic | Vendor or user-uploaded visit counts | measured for nodes matched to an uploaded CSV row within 300 m, otherwise unavailable |
 
 **Data sources & provenance.** Every signal carries a `measured` / `proxy` /
 `unavailable` tag. Both the site detail card and the Gemini prompt show this
