@@ -19,19 +19,31 @@ export default function SuburbSearch({ disabled, value, onSelect }: Props) {
   const [error, setError] = useState<string | null>(null);
   const token = useRef<unknown>(undefined);
   const timer = useRef<number | undefined>(undefined);
+  const blurTimer = useRef<number | undefined>(undefined);
+  const seq = useRef(0);
   const lib = placesLib as any;
 
   useEffect(() => { if (value) setText(`${value.suburb}, ${value.city}`); }, [value]);
+
+  // Clear any pending debounce/blur timers on unmount so a late timeout can't
+  // call setState (or kick off a network request) after the component is gone.
+  useEffect(() => () => {
+    window.clearTimeout(timer.current);
+    window.clearTimeout(blurTimer.current);
+  }, []);
 
   const search = (q: string) => {
     window.clearTimeout(timer.current);
     if (!lib) return;
     timer.current = window.setTimeout(async () => {
+      const mySeq = ++seq.current;
       try {
         if (!token.current) token.current = newSessionToken(lib);
         const out = await fetchSuburbSuggestions(lib, q, token.current);
+        if (mySeq !== seq.current) return; // a newer request (or a pick) superseded this one
         setItems(out); setOpen(out.length > 0); setActive(0); setError(null);
       } catch (e) {
+        if (mySeq !== seq.current) return;
         console.warn('autocomplete failed', e);
         setItems([]); setOpen(true); setError('Search unavailable');
       }
@@ -45,6 +57,7 @@ export default function SuburbSearch({ disabled, value, onSelect }: Props) {
   };
 
   const pick = async (s: SuburbSuggestion) => {
+    seq.current++; // invalidate any in-flight suggestion fetch so it can't reopen the list
     setOpen(false);
     try {
       const sel = await resolveSuburb(s);
@@ -72,7 +85,7 @@ export default function SuburbSearch({ disabled, value, onSelect }: Props) {
         <Icon name="search" size={14} style={{ color: 'var(--ink-3)', flexShrink: 0 }} />
         <input
           value={text} onChange={onChange} onKeyDown={onKey} onFocus={() => items.length && setOpen(true)}
-          onBlur={() => window.setTimeout(() => setOpen(false), 120)}
+          onBlur={() => { blurTimer.current = window.setTimeout(() => setOpen(false), 120); }}
           placeholder="Search a suburb…" disabled={disabled || !lib}
           role="combobox" aria-expanded={open} aria-controls={listId} aria-autocomplete="list"
           style={{ background: 'transparent', border: 'none', outline: 'none', color: 'var(--ink)', fontSize: 13, flex: 1, padding: 0, minWidth: 0 }} />
