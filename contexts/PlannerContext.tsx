@@ -1,6 +1,6 @@
 import React, { createContext, FC, ReactNode, useContext, useCallback } from 'react';
 import { detectCommercialNodes, findBrandStores } from '@/lib/site-planner/node-detection';
-import { analyzeSuburb, rerank } from '@/lib/site-planner/reasoning';
+import { analyzeSuburb, rerank, answerQuestion, classifyIntent, describeRankChanges } from '@/lib/site-planner/reasoning';
 import { queryPlaces } from '@/lib/site-planner/places-data';
 import { usePlannerStore } from '@/lib/site-planner/data-store';
 import { gatherSignals, CallBudget } from '@/lib/site-planner/signals';
@@ -93,9 +93,11 @@ export const PlannerProvider: FC<{
     const s = usePlannerStore.getState();
     s.setStatus('reasoning');
     try {
+      const before = s.result;
       const result = await rerank({ brand: s.brand, suburb: s.suburb, features: s.features, weights: s.weights }, message);
       s.setResult(result);
-      s.addChat({ role: 'agent', text: result.overallSummary });
+      const moves = describeRankChanges(before, result, s.features);
+      s.addChat({ role: 'agent', text: [moves, result.overallSummary].filter(Boolean).join('\n\n') });
       useMapStore.getState().setMarkers(markersFor(s.features, result));
       s.setStatus('done');
     } catch (e: any) {
@@ -126,10 +128,27 @@ export const PlannerProvider: FC<{
       return;
     }
 
-    // 2) Re-rank the current candidate sites
+    // 2) A question about the current ranking → answer it without touching the ranking
+    if (s.features.length && classifyIntent(message) === 'question') {
+      s.setStatus('reasoning');
+      try {
+        const text = await answerQuestion(
+          { brand: s.brand, suburb: s.suburb, features: s.features, weights: s.weights, result: s.result, history: s.chat.slice(0, -1) },
+          message,
+        );
+        s.addChat({ role: 'agent', text });
+      } catch (e: any) {
+        s.addChat({ role: 'agent', text: `Sorry — I couldn't answer that: ${e?.message ?? 'unknown error'}` });
+      } finally {
+        s.setStatus('done');
+      }
+      return;
+    }
+
+    // 3) An instruction → re-rank the current candidate sites
     if (s.features.length) { await doRerank(message); return; }
 
-    // 3) Guidance
+    // 4) Guidance
     s.addChat({
       role: 'agent',
       text: 'I can map your data — try **“show all burger places”** or **“pizza places”**, or a brand like **“where are the KFCs”**. To rank store locations, set a city + suburb and hit **Find sites**.',

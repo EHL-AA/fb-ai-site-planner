@@ -55,6 +55,16 @@ Foot traffic is deliberately not a signal: Google exposes no visitation data, an
 provenance, so a ranking rationale can be checked against which numbers are
 real measurements versus proxies versus missing data.
 
+## Asking the planner
+
+The chat on the right understands three kinds of message:
+
+- **Questions** ("Why is site 1 above site 2?", "Which sites suit a drive-through?", "How confident should I be?") are answered from the current ranking and never change it. "Site N" always means the site at rank N.
+- **Instructions** ("Weight traffic higher", "Exclude anything within 2 km of an existing Steers", "Avoid cannibalisation") re-rank the same candidates, and the reply starts with what moved.
+- **Map requests** ("Show all burger places", "Where are the KFCs and Chicken Lickens") plot the bundled competitor or retail data. A message has to ask to *see* places; merely mentioning a brand or category in a question does not trigger the map.
+
+Site codes (CPT-006, JHB-002, …) are tied to the location, not the rank, so they stay put when a re-rank reorders the list.
+
 ## Census data (optional)
 
 The planner joins each candidate site to the nearest Stats SA ward centroid for

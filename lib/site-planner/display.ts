@@ -103,7 +103,8 @@ export function toDisplaySites(
       const f = featureById.get(site.id);
       const score = Math.round(site.compositeScore0to100);
       const tier = tierFor(score);
-      const codeNum = String(site.rank).padStart(3, '0');
+      // Stable per location: derived from the node id, not the rank, so codes survive re-ranking.
+      const codeNum = String(site.id.match(/(\d+)\s*$/)?.[1] ?? site.rank).padStart(3, '0');
       return {
         id: site.id,
         code: `${prefix}-${codeNum}`,

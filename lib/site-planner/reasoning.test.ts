@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildPrompt, validateRankedResult, REASONING_MODEL, isInvalidKeyError } from './reasoning';
+import { buildPrompt, validateRankedResult, REASONING_MODEL, isInvalidKeyError, classifyIntent, rankingTable, buildAnswerPrompt, describeRankChanges } from './reasoning';
 import { FeatureVector, DEFAULT_WEIGHTS } from './types';
 
 const fv: FeatureVector = {
@@ -66,5 +66,46 @@ describe('buildPrompt provenance', () => {
     expect(p).toContain('- Google Routes API (live traffic): measured — peak');
     expect(p).toContain('- Foot traffic (no feed connected): unavailable — none');
     expect(buildPrompt({ brand: 'Steers', suburb: 'Rosebank', features: [fv], weights: DEFAULT_WEIGHTS })).not.toContain('Data provenance');
+  });
+});
+
+describe('classifyIntent', () => {
+  it('treats questions as questions and instructions as re-ranks', () => {
+    expect(classifyIntent('Why is site 1 ranked above site 2?')).toBe('question');
+    expect(classifyIntent('Which sites have the strongest lunch trade')).toBe('question');
+    expect(classifyIntent('Should we weight traffic higher?')).toBe('question');
+    expect(classifyIntent('Weight traffic higher')).toBe('rerank');
+    expect(classifyIntent('Exclude anything within 2 km of an existing Steers')).toBe('rerank');
+    expect(classifyIntent('Avoid cannibalisation')).toBe('rerank');
+    expect(classifyIntent('re-rank with demographics at 40%')).toBe('rerank');
+    expect(classifyIntent('thanks')).toBe('question');
+  });
+});
+
+describe('rankingTable / buildAnswerPrompt', () => {
+  const result = { overallSummary: 's', ranked: [
+    { id: 'n2', rank: 1, compositeScore0to100: 70, breakdown: { traffic: 1, demographics: 1, competition: 1, accessibility: 1 }, rationale: 'busy', risks: '' },
+    { id: 'n1', rank: 2, compositeScore0to100: 60, breakdown: { traffic: 1, demographics: 1, competition: 1, accessibility: 1 }, rationale: 'quiet', risks: '' },
+  ] };
+  it('maps Site N to the node at rank N, not to node ids', () => {
+    const t = rankingTable([fv, { ...fv, id: 'n2', label: 'Near Mall' }], result);
+    expect(t.split('\n')[0]).toContain('Site 1 (rank 1) = n2 "Near Mall"');
+    expect(t.split('\n')[1]).toContain('Site 2 (rank 2) = n1 "Rosebank Mall"');
+  });
+  it('includes the ranking, provenance, history and the question', () => {
+    const p = buildAnswerPrompt({ brand: 'Steers', suburb: 'Rosebank', features: [fv], weights: DEFAULT_WEIGHTS, result, history: [{ role: 'user', text: 'hi' }, { role: 'agent', text: 'hello' }] }, 'Why is site 1 top?');
+    expect(p).toContain('Current ranking');
+    expect(p).toContain('Planner: hi');
+    expect(p).toContain("Planner's question: Why is site 1 top?");
+  });
+});
+
+describe('describeRankChanges', () => {
+  const mk = (order: string[]) => ({ overallSummary: '', ranked: order.map((id, i) => ({ id, rank: i + 1, compositeScore0to100: 50, breakdown: { traffic: 1, demographics: 1, competition: 1, accessibility: 1 }, rationale: '', risks: '' })) });
+  const feats = [{ ...fv, id: 'a', label: 'A' }, { ...fv, id: 'b', label: 'B' }, { ...fv, id: 'c', label: 'C' }];
+  it('lists movements up and down by site name', () => {
+    expect(describeRankChanges(mk(['a', 'b', 'c']), mk(['c', 'a', 'b']), feats)).toBe('**Moved up:** C 3→1. **Moved down:** A 1→2, B 2→3.');
+    expect(describeRankChanges(mk(['a', 'b', 'c']), mk(['a', 'b', 'c']), feats)).toBe('Ranking unchanged.');
+    expect(describeRankChanges(null, mk(['a']), feats)).toBe('');
   });
 });

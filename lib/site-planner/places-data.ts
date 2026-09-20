@@ -62,9 +62,19 @@ export interface PlaceQuery {
   topBrands: [string, number][];
 }
 
+/** Only messages that explicitly ask to see places on the map are map queries;
+ *  a question that merely mentions "pizza" or a brand is answered, not plotted. */
+const MAP_INTENT = /\b(show|map|plot|display|highlight|where (are|is)|list|find|mark|put .* on the map|pin)\b/i;
+export function hasMapIntent(message: string): boolean {
+  const m = message.trim();
+  if (/^\s*(why|how|should|would|could|is|are|does|do|can|compare|explain|tell me why)\b/i.test(m)) return false;
+  return MAP_INTENT.test(m);
+}
+
 /** Interpret a free-text request like "show all burger places" into a
  *  filtered set of places. Returns null if the message isn't a place query. */
 export function queryPlaces(message: string, data: PlacesData, center: LatLng | null): PlaceQuery | null {
+  if (!hasMapIntent(message)) return null;
   const m = message.toLowerCase();
 
   const retailIntent = RETAIL_HINTS.some(h => m.includes(h));
@@ -72,11 +82,12 @@ export function queryPlaces(message: string, data: PlacesData, center: LatLng | 
     .filter(([, kws]) => kws.some(k => m.includes(k)))
     .map(([cat]) => cat);
 
-  // Brand match against whatever's in the data.
+  // Brand match against whatever's in the data; several brands may be named at once.
   const brandSet = new Set<string>();
   for (const p of data.competitors) if (p.b) brandSet.add(p.b.toLowerCase());
   for (const p of data.retail) if (p.b) brandSet.add(p.b.toLowerCase());
-  const matchedBrand = [...brandSet].find(b => b.length > 2 && m.includes(b));
+  const matchedBrands = [...brandSet].filter(b => b.length > 2 && m.includes(b));
+  const matchedBrand = matchedBrands[0];
 
   let dataset: 'competitors' | 'retail';
   let pool: PlaceRec[];
@@ -91,15 +102,17 @@ export function queryPlaces(message: string, data: PlacesData, center: LatLng | 
     } else {
       label = 'retail anchors';
     }
-  } else if (matchedCats.length > 0 || matchedBrand) {
+  } else if (matchedBrands.length > 0) {
+    // Named brands win over category words ("KFCs and Chicken Lickens" is two brands, not "chicken").
+    dataset = 'competitors';
+    pool = data.competitors.filter(p => matchedBrands.includes(p.b.toLowerCase()));
+    const names = [...new Set(pool.map(p => p.b))];
+    label = `${(names.length ? names : matchedBrands).join(' / ')} places`;
+  } else if (matchedCats.length > 0) {
     dataset = 'competitors';
     const kws = matchedCats.flatMap(c => CATEGORY_KEYWORDS[c]);
-    pool = data.competitors.filter(p => {
-      const byCat = kws.length > 0 && p.c && kws.some(k => p.c!.includes(k));
-      const byBrand = matchedBrand && p.b.toLowerCase() === matchedBrand;
-      return byCat || byBrand;
-    });
-    label = matchedCats.length > 0 ? `${matchedCats.join(' / ')} places` : `${pool[0]?.b ?? matchedBrand} places`;
+    pool = data.competitors.filter(p => kws.length > 0 && p.c && kws.some(k => p.c!.includes(k)));
+    label = `${matchedCats.join(' / ')} places`;
   } else {
     return null;
   }

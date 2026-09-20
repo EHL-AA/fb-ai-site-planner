@@ -25,8 +25,11 @@ describe('toDisplaySites', () => {
     demographics: { source: 'proxy', affluenceProxy0to100: 40 },
   };
   const result = { overallSummary: '', ranked: [{ id: 'n1', rank: 1, compositeScore0to100: 70, breakdown: { traffic: 50, demographics: 40, competition: 90, accessibility: 0 }, rationale: 'r', risks: '' }] };
-  it('uses the city for the site code', () => {
+  it('uses the city and the node number for the site code (stable across re-ranks)', () => {
     expect(toDisplaySites([fv], result, 'Mitchells Plain', 'Cape Town')[0].code).toBe('CPT-001');
     expect(toDisplaySites([fv], result, 'Rosebank')[0].code).toBe('SITE-001');
+    const fv6 = { ...fv, id: 'node-6' };
+    const r6 = { ...result, ranked: [{ ...result.ranked[0], id: 'node-6', rank: 1 }] };
+    expect(toDisplaySites([fv6], r6, 'Mitchells Plain', 'Cape Town')[0].code).toBe('CPT-006');
   });
 });

@@ -1,6 +1,8 @@
 import { GoogleGenAI, ThinkingLevel } from '@google/genai';
 import { FeatureVector, RankedResult, ScoringWeights } from './types';
 
+export interface ChatTurn { role: 'user' | 'agent'; text: string; }
+
 const API_KEY = process.env.API_KEY as string;
 export const REASONING_MODEL = 'gemini-3.8-flash';
 /** Human-readable model name for UI badges/status text. */
@@ -47,6 +49,9 @@ Score each site 0-100 as a weighted composite using the provided weights, rank t
 and explain each ranking in plain business language. Penalise high cannibalisation and excessive
 direct competition. Reward high traffic, good accessibility, and target-customer demographic fit.
 Be specific about why a site wins or loses. Never invent data not present in the candidate.
+In overallSummary, rationale and risks, always call a site by its label (e.g. "Near Nabielah Hardware"), never by
+its node id. Keep overallSummary under 90 words and, when the request was a change, lead with what moved and why.
+A signal marked unavailable was not measured; never describe it as zero or absent.
 
 Each candidate carries a "sources" list. Signals marked "proxy" are indirect estimates; signals marked
 "unavailable" were not collected for this run. Never treat a proxy as measured footfall; no source in this app measures foot traffic directly. When a
@@ -142,4 +147,94 @@ export function analyzeSuburb(input: PromptInput): Promise<RankedResult> {
 /** Re-rank the same candidates with an added natural-language constraint from chat. */
 export function rerank(input: PromptInput, userMessage: string): Promise<RankedResult> {
   return callPro(buildPrompt({ ...input, constraints: [input.constraints, userMessage].filter(Boolean).join('; ') }));
+}
+
+
+// ---------------------------------------------------------------------------
+// Chat: questions are answered; only explicit instructions re-rank.
+// ---------------------------------------------------------------------------
+
+export type ChatIntent = 'rerank' | 'question';
+
+const RERANK_VERBS = /\b(re-?rank|rank (them |it |these )?again|re-?score|weight|weigh|prioriti[sz]e|de-?prioriti[sz]e|exclude|ignore|only (consider|include|keep|look at)|avoid|drop|remove|penali[sz]e|boost|favou?r|focus on|filter (out|to)|assume|treat)\b/i;
+const QUESTION_OPENERS = /^\s*(why|what|which|how|who|when|where|is|are|does|do|did|can|could|should|would|will|explain|compare|tell|describe|summari[sz]e)\b/i;
+
+/** Instructions that change the scoring re-rank; everything else is a question about the current ranking. */
+export function classifyIntent(message: string): ChatIntent {
+  const m = message.trim();
+  if (!m) return 'question';
+  if (QUESTION_OPENERS.test(m) || m.endsWith('?')) return 'question';
+  return RERANK_VERBS.test(m) ? 'rerank' : 'question';
+}
+
+/** "Rank 1 · node-6 · Near X · score 45" lines so the model resolves "site 2" to the right place. */
+export function rankingTable(features: FeatureVector[], result: RankedResult | null): string {
+  if (!result) return 'No ranking yet.';
+  const byId = new Map(features.map(f => [f.id, f]));
+  return [...result.ranked]
+    .sort((a, b) => a.rank - b.rank)
+    .map(r => `Site ${r.rank} (rank ${r.rank}) = ${r.id} "${byId.get(r.id)?.label ?? r.id}" — score ${Math.round(r.compositeScore0to100)}; rationale: ${r.rationale}`)
+    .join('\n');
+}
+
+const SYSTEM_QA = `You are the same Famous Brands site-selection analyst, now answering a property planner's
+question about a ranking you already produced. Rules:
+- "Site N" and "rank N" always mean the row with rank N in the ranking table you are given, never a node id.
+- Do not change or propose a new ranking; explain the one that exists. If the user seems to want a change, say
+  they can ask you to re-rank with an instruction such as "weight traffic higher".
+- Be concrete: quote the actual numbers for the sites involved (reviews, congestion by time of day, trade hours,
+  price band, competitors, distances). Never invent data.
+- Keep it short: under 140 words, markdown, one short lead sentence then 2–5 bullets. Refer to sites as
+  "Site 2 (Near X)".
+- If the data cannot answer the question, say exactly what is missing and what would unlock it (e.g. enable the
+  Places Aggregate API; load census wards; the app measures vehicle congestion, not pedestrian footfall).
+- If the user's premise is wrong, correct it gently and factually ("It's the other way round: …"), never call it incorrect.
+- "unavailable" means not measured for that site; never present it as zero.
+- Stats SA did not release Census 2022 income; loading the census unlocks population and density only. Income or LSM
+  comes from a demographics CSV the planner uploads.
+- You cannot change the brand. The ranking, existing-store layer and cannibalisation are specific to the brand the planner
+  selected; to assess another Famous Brands marque, tell them to pick it in the brand chips and press Find sites.`;
+
+export function buildAnswerPrompt(input: PromptInput & { result: RankedResult | null; history?: ChatTurn[] }, question: string): string {
+  const history = (input.history ?? []).slice(-6).map(t => `${t.role === 'user' ? 'Planner' : 'Analyst'}: ${t.text}`).join('\n');
+  return [
+    `Brand: ${input.brand}. Suburb: ${input.suburb}.`,
+    `Scoring weights: traffic=${input.weights.traffic}, demographics=${input.weights.demographics}, competition=${input.weights.competition}, accessibility=${input.weights.accessibility}`,
+    'Current ranking (authoritative):',
+    rankingTable(input.features, input.result),
+    provenanceBlock(input.features),
+    'Candidate signals (JSON, keyed by node id):',
+    JSON.stringify(input.features.map(({ sources, ...rest }) => rest)),
+    history ? `Recent conversation:\n${history}` : '',
+    `Planner's question: ${question}`,
+  ].filter(Boolean).join('\n\n');
+}
+
+/** Answer a question about the current ranking without changing it. */
+export async function answerQuestion(input: PromptInput & { result: RankedResult | null; history?: ChatTurn[] }, question: string): Promise<string> {
+  if (!API_KEY) throw new Error('Missing required environment variable: API_KEY');
+  const ai = new GoogleGenAI({ apiKey: API_KEY });
+  const res = await ai.models.generateContent({
+    model: REASONING_MODEL,
+    contents: buildAnswerPrompt(input, question),
+    config: { systemInstruction: SYSTEM_QA, thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } },
+  });
+  const text = res.text?.trim();
+  if (!text) throw new Error('Empty answer from the reasoning model.');
+  return text;
+}
+
+/** Human summary of rank movements between two rankings, for the chat reply after a re-rank. */
+export function describeRankChanges(before: RankedResult | null, after: RankedResult, features: FeatureVector[]): string {
+  if (!before) return '';
+  const name = (id: string) => features.find(f => f.id === id)?.label ?? id;
+  const prev = new Map(before.ranked.map(r => [r.id, r.rank]));
+  const moves = after.ranked
+    .map(r => ({ id: r.id, from: prev.get(r.id), to: r.rank }))
+    .filter(m => m.from != null && m.from !== m.to)
+    .sort((a, b) => a.to - b.to);
+  if (!moves.length) return 'Ranking unchanged.';
+  const up = moves.filter(m => m.to < (m.from as number)).map(m => `${name(m.id)} ${m.from}→${m.to}`);
+  const down = moves.filter(m => m.to > (m.from as number)).map(m => `${name(m.id)} ${m.from}→${m.to}`);
+  return [up.length ? `**Moved up:** ${up.join(', ')}.` : '', down.length ? `**Moved down:** ${down.join(', ')}.` : ''].filter(Boolean).join(' ');
 }
