@@ -2,15 +2,15 @@ import React, { createContext, FC, ReactNode, useContext, useCallback } from 're
 import { detectCommercialNodes, findBrandStores } from '@/lib/site-planner/node-detection';
 import { computeFeatures } from '@/lib/site-planner/features';
 import { analyzeSuburb, rerank } from '@/lib/site-planner/reasoning';
-import { queryPlaces, PlaceRec } from '@/lib/site-planner/places-data';
+import { queryPlaces } from '@/lib/site-planner/places-data';
 import { usePlannerStore } from '@/lib/site-planner/data-store';
 import { useMapStore, MapMarker } from '@/lib/state';
-import { FeatureVector, RankedResult, CompetitorRecord, StoreRecord } from '@/lib/site-planner/types';
+import { FeatureVector, RankedResult, CompetitorRecord, StoreRecord, SuburbSelection } from '@/lib/site-planner/types';
 
 interface PlannerContextValue {
   placesLib: google.maps.PlacesLibrary | null;
   geocoder: google.maps.Geocoder | null;
-  runAnalysis: (city: string, suburb: string) => Promise<void>;
+  runAnalysis: (selection: SuburbSelection) => Promise<void>;
   ask: (message: string) => Promise<void>;
 }
 
@@ -31,37 +31,28 @@ export const PlannerProvider: FC<{
   children: ReactNode;
   placesLib: google.maps.PlacesLibrary | null;
   geocoder: google.maps.Geocoder | null;
-}> = ({ children, placesLib, geocoder }) => {
-  const runAnalysis = useCallback(async (city: string, suburb: string) => {
+  mapsApiKey: string;
+}> = ({ children, placesLib, geocoder, mapsApiKey }) => {
+  const runAnalysis = useCallback(async (selection: SuburbSelection) => {
     const s = usePlannerStore.getState();
-    if (!placesLib || !geocoder) { s.setError('Map libraries not ready yet.'); s.setStatus('error'); return; }
-    s.setLocation(city, suburb);
+    if (!placesLib) { s.setError('Map libraries not ready yet.'); s.setStatus('error'); return; }
+    s.setSelection(selection);
     s.setError(null);
     s.setStatus('detecting');
     try {
-      const query = `${suburb}, ${city}`;
-      let center: { lat: number; lng: number } | null = null;
-      const geo = await geocoder.geocode({ address: query });
-      if (geo.results?.[0]) {
-        const loc = geo.results[0].geometry.location;
-        center = { lat: loc.lat(), lng: loc.lng() };
-        s.setViewCenter(center);
-        useMapStore.getState().setCameraTarget({
-          center: { lat: center.lat, lng: center.lng, altitude: 5000 },
-          range: 15000, tilt: 25, heading: 0, roll: 0,
-        });
-      }
+      const { center, viewport, suburb } = selection;
+      s.setViewCenter(center);
+      useMapStore.getState().setCameraTarget({
+        center: { lat: center.lat, lng: center.lng, altitude: 5000 },
+        range: 15000, tilt: 25, heading: 0, roll: 0,
+      });
 
-      const nodes = await detectCommercialNodes({ placesLib, geocoder, query });
-      if (!nodes.length) { s.setError(`No commercial nodes found in ${query}. Try a larger or busier suburb.`); s.setStatus('error'); return; }
+      const nodes = await detectCommercialNodes({ placesLib, center, viewport });
+      if (!nodes.length) { s.setError(`No commercial nodes found in ${suburb}. Try a larger or busier suburb.`); s.setStatus('error'); return; }
       s.setCandidates(nodes);
 
-      // The selected brand's existing outlets near the suburb (green layer + cannibalisation).
-      let existingStores: PlaceRec[] = [];
-      if (center) {
-        existingStores = await findBrandStores(placesLib, s.brand, center);
-        s.setExistingStores(existingStores);
-      }
+      const existingStores = await findBrandStores(placesLib, s.brand, center);
+      s.setExistingStores(existingStores);
 
       // Use uploaded competitor CSV if present, else the bundled FB competitor data.
       const competitors: CompetitorRecord[] = s.competitors.length
@@ -87,7 +78,7 @@ export const PlannerProvider: FC<{
       s.setError(e?.message ?? 'Analysis failed.');
       s.setStatus('error');
     }
-  }, [placesLib, geocoder]);
+  }, [placesLib]);
 
   const doRerank = useCallback(async (message: string) => {
     const s = usePlannerStore.getState();

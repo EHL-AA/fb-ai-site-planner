@@ -1,10 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import { REASONING_MODEL_LABEL } from '@/lib/site-planner/reasoning';
 import Icon from './Icon';
+import SuburbSearch from './SuburbSearch';
 import { usePlanner } from '@/contexts/PlannerContext';
 import { usePlannerStore } from '@/lib/site-planner/data-store';
 import { useMapStore, useUI } from '@/lib/state';
 import { BRANDS, brandByName, tierColor, toDisplaySites, DisplaySite } from '@/lib/site-planner/display';
+import { SuburbSelection } from '@/lib/site-planner/types';
 
 const iconBtn: React.CSSProperties = {
   background: 'var(--bg-2)', border: '1px solid var(--line)', borderRadius: 8, padding: 6,
@@ -82,8 +84,7 @@ export default function SitesSidebar() {
   const { brand, setBrand, suburb: storeSuburb, features, result, status, selectedSiteId, selectSite } = usePlannerStore();
   const { toggleSidebar } = useUI();
 
-  const [city, setCity] = useState('Johannesburg');
-  const [suburb, setSuburb] = useState('');
+  const [selection, setSelection] = useState<SuburbSelection | null>(null);
   const [filters, setFilters] = useState({ aplus: false, lowCannibal: false, lowComp: false });
   const busy = status === 'detecting' || status === 'reasoning';
 
@@ -97,8 +98,8 @@ export default function SitesSidebar() {
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!suburb.trim() || busy) return;
-    runAnalysis(city.trim(), suburb.trim());
+    if (!selection || busy) return;
+    runAnalysis(selection);
   };
 
   const flyTo = (s: DisplaySite) => {
@@ -135,23 +136,14 @@ export default function SitesSidebar() {
       {/* Search → runs analysis */}
       <form onSubmit={onSubmit} style={{ padding: '12px 18px', borderBottom: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: 8 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-2)', border: '1px solid var(--line-2)', borderRadius: 10, padding: '8px 10px' }}>
-            <Icon name="map" size={14} style={{ color: 'var(--ink-3)', flexShrink: 0 }} />
-            <input value={city} onChange={e => setCity(e.target.value)} placeholder="City" disabled={busy}
-              style={{ background: 'transparent', border: 'none', outline: 'none', color: 'var(--ink)', fontSize: 13, flex: 1, padding: 0, minWidth: 0 }} />
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-2)', border: '1px solid var(--line-2)', borderRadius: 10, padding: '8px 10px' }}>
-            <Icon name="search" size={14} style={{ color: 'var(--ink-3)', flexShrink: 0 }} />
-            <input value={suburb} onChange={e => setSuburb(e.target.value)} placeholder="Suburb…" disabled={busy}
-              style={{ background: 'transparent', border: 'none', outline: 'none', color: 'var(--ink)', fontSize: 13, flex: 1, padding: 0, minWidth: 0 }} />
-          </div>
+          <SuburbSearch disabled={busy} value={selection} onSelect={setSelection} />
         </div>
-        <button type="submit" disabled={busy || !suburb.trim()} style={{
+        <button type="submit" disabled={busy || !selection} style={{
           width: '100%', justifyContent: 'center',
-          background: busy || !suburb.trim() ? 'var(--bg-3)' : 'linear-gradient(135deg, var(--accent), var(--accent-2))',
-          color: busy || !suburb.trim() ? 'var(--ink-3)' : 'var(--accent-ink)',
+          background: busy || !selection ? 'var(--bg-3)' : 'linear-gradient(135deg, var(--accent), var(--accent-2))',
+          color: busy || !selection ? 'var(--ink-3)' : 'var(--accent-ink)',
           border: 'none', borderRadius: 10, padding: '10px', fontSize: 13, fontWeight: 600,
-          cursor: busy || !suburb.trim() ? 'not-allowed' : 'pointer',
+          cursor: busy || !selection ? 'not-allowed' : 'pointer',
         }}>{busy ? 'Analysing…' : 'Find sites'}</button>
 
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -191,7 +183,7 @@ export default function SitesSidebar() {
         {!busy && sites.length === 0 && status !== 'error' && (
           <div style={{ padding: '36px 18px', color: 'var(--ink-3)', fontSize: 13, lineHeight: 1.6 }}>
             <p style={{ margin: 0, color: 'var(--ink-2)', fontSize: 15, fontWeight: 600 }}>Scout a suburb</p>
-            <p style={{ margin: '8px 0 0' }}>Set the brand and a city + suburb above, then <strong style={{ color: 'var(--ink)' }}>Find sites</strong>. I’ll detect the busiest commercial nodes and rank them for a new store.</p>
+            <p style={{ margin: '8px 0 0' }}>Set the brand and search a suburb above, then <strong style={{ color: 'var(--ink)' }}>Find sites</strong>. I’ll detect the busiest commercial nodes and rank them for a new store.</p>
           </div>
         )}
         {filtered.map(s => (

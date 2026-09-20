@@ -4,6 +4,7 @@ import { PlaceRec } from './places-data';
 import {
   CompetitorRecord, StoreRecord, DemographicRecord,
   CandidateNode, FeatureVector, RankedResult, ScoringWeights, DEFAULT_WEIGHTS,
+  SuburbSelection,
 } from './types';
 
 export type AnalysisStatus = 'idle' | 'detecting' | 'reasoning' | 'done' | 'error';
@@ -16,6 +17,7 @@ interface PlannerState {
   brand: string;
   suburb: string;
   city: string;
+  selection: SuburbSelection | null;
   weights: ScoringWeights;
 
   competitors: CompetitorRecord[];
@@ -40,7 +42,7 @@ interface PlannerState {
   viewCenter: LatLngLite | null;
 
   setBrand: (b: string) => void;
-  setLocation: (city: string, suburb: string) => void;
+  setSelection: (s: SuburbSelection | null) => void;
   setWeights: (w: ScoringWeights) => void;
   setCompetitors: (r: CompetitorRecord[]) => void;
   setStores: (r: StoreRecord[]) => void;
@@ -65,6 +67,7 @@ export const usePlannerStore = create<PlannerState>(set => ({
   brand: 'Steers',
   suburb: '',
   city: '',
+  selection: null,
   weights: DEFAULT_WEIGHTS,
   competitors: [],
   stores: [],
@@ -85,7 +88,7 @@ export const usePlannerStore = create<PlannerState>(set => ({
   viewCenter: null,
 
   setBrand: brand => set({ brand }),
-  setLocation: (city, suburb) => set({ city, suburb }),
+  setSelection: selection => set({ selection, city: selection?.city ?? '', suburb: selection?.suburb ?? '' }),
   setWeights: weights => set({ weights }),
   setCompetitors: competitors => set({ competitors }),
   setStores: stores => set({ stores }),

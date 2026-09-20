@@ -29,8 +29,8 @@ const SEARCH_TYPES = ['restaurant', 'shopping_mall', 'supermarket', 'cafe', 'sto
 
 export interface DetectOptions {
   placesLib: google.maps.PlacesLibrary;
-  geocoder: google.maps.Geocoder;
-  query: string;            // "Rosebank, Johannesburg"
+  center: LatLng;
+  viewport: Bounds;
   gridSize?: number;        // sampling resolution (default 2 -> 4 Places calls)
   searchRadiusM?: number;   // per-point radius (default 1000)
   clusterRadiusM?: number;  // node merge radius (default 250)
@@ -45,18 +45,13 @@ function isQuotaError(e: unknown): boolean {
 
 interface WeightedPlacePoint extends WeightedPoint { place: RawPlace; }
 
-/** Geocode the suburb, sweep Places across it, and cluster POIs into nodes. */
+/** Sweep Places across the given viewport and cluster POIs into nodes. */
 export async function detectCommercialNodes(opts: DetectOptions): Promise<CandidateNode[]> {
-  const { placesLib, geocoder, query } = opts;
+  const { placesLib, viewport: bounds } = opts;
   const gridSize = opts.gridSize ?? 2;
   const searchRadiusM = opts.searchRadiusM ?? 1000;
   const clusterRadiusM = opts.clusterRadiusM ?? 250;
   const maxNodes = opts.maxNodes ?? 8;
-
-  const geo = await geocoder.geocode({ address: query });
-  if (!geo.results?.length) throw new Error(`Could not find "${query}".`);
-  const vp = geo.results[0].geometry.viewport.toJSON(); // {north,south,east,west}
-  const bounds: Bounds = { north: vp.north, south: vp.south, east: vp.east, west: vp.west };
 
   const seen = new Map<string, RawPlace>();
   let quotaHit = false;

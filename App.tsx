@@ -179,7 +179,7 @@ function AppComponent() {
   }, []);
 
   return (
-    <PlannerProvider placesLib={placesLib} geocoder={geocoder}>
+    <PlannerProvider placesLib={placesLib} geocoder={geocoder} mapsApiKey={MAPS_API_KEY ?? ''}>
       <div style={{ display: 'flex', width: '100vw', height: '100vh', background: 'var(--bg)' }}>
         <SitesSidebar />
         <main className="map-stage">
