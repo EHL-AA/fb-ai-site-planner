@@ -167,3 +167,21 @@ Here are a couple of sample prompts to get you started on creating a simple "Cit
 2.  **Prompt to create a new system instruction that uses the new feature:**
 
     > "Now, create a new system instruction for a 'City Explorer' persona. This persona should ask the user for a few places they want to see. Then, it MUST use the `frameLocations` tool to show all places on the map. It should then ask the user if they want a closer look and use the new `zoomLevel` parameter if they say yes."
+
+## Census data (optional)
+
+The planner joins each candidate site to the nearest Stats SA ward centroid for
+population and household density. Income is not available (Stats SA withheld
+Census 2022 income). To bundle the data:
+
+1. SuperWEB2 (https://superweb.statssa.gov.za/webapi) → Census 2022 → table by
+   **Ward (2020 boundaries)** with Population and Households → Download Table →
+   CSV. Save as `wards.csv` with columns `ward, population, households`.
+2. Ward centroids + area from the Municipal Demarcation Board 2020 ward
+   boundaries (compute centroid and area in QGIS or similar). Save as
+   `centroids.csv` with columns `ward, lat, lng, area_km2`.
+3. `node scripts/prepare-census.mjs wards.csv centroids.csv` → writes
+   `public/data/census-wards.json`.
+
+Until that file is populated, the census signal reports **unavailable** and the
+ranking proceeds without it.
