@@ -13,6 +13,8 @@ interface PlannerContextValue {
   geocoder: google.maps.Geocoder | null;
   runAnalysis: (selection: SuburbSelection) => Promise<void>;
   ask: (message: string) => Promise<void>;
+  /** Re-rank the current candidates using the weights currently set in the store (the sliders). */
+  rerankWithWeights: () => Promise<void>;
 }
 
 const Ctx = createContext<PlannerContextValue | undefined>(undefined);
@@ -92,19 +94,37 @@ export const PlannerProvider: FC<{
   const doRerank = useCallback(async (message: string) => {
     const s = usePlannerStore.getState();
     s.setStatus('reasoning');
+    s.setChatActivity('reranking');
     try {
       const before = s.result;
       const result = await rerank({ brand: s.brand, suburb: s.suburb, features: s.features, weights: s.weights }, message);
       s.setResult(result);
       const moves = describeRankChanges(before, result, s.features);
-      s.addChat({ role: 'agent', text: [moves, result.overallSummary].filter(Boolean).join('\n\n') });
+      let weightsLine = '';
+      if (result.appliedWeights) {
+        const w = result.appliedWeights;
+        const changed = (['traffic', 'demographics', 'competition', 'accessibility'] as const).some(k => Math.abs(w[k] - s.weights[k]) >= 0.02);
+        s.setWeights(w);
+        if (changed) weightsLine = `**Weights now:** traffic ${w.traffic.toFixed(2)} · demographics ${w.demographics.toFixed(2)} · competition ${w.competition.toFixed(2)} · accessibility ${w.accessibility.toFixed(2)} (sliders updated).`;
+      }
+      s.addChat({ role: 'agent', text: [moves, weightsLine, result.overallSummary].filter(Boolean).join('\n\n') });
       useMapStore.getState().setMarkers(markersFor(s.features, result));
       s.setStatus('done');
     } catch (e: any) {
       s.addChat({ role: 'agent', text: `Sorry — re-ranking failed: ${e?.message ?? 'unknown error'}` });
       s.setStatus('done');
+    } finally {
+      usePlannerStore.getState().setChatActivity(null);
     }
   }, []);
+
+  const rerankWithWeights = useCallback(async () => {
+    const s = usePlannerStore.getState();
+    if (!s.features.length) return;
+    const w = s.weights;
+    s.addChat({ role: 'user', text: `Re-rank with weights: traffic ${w.traffic.toFixed(2)}, demographics ${w.demographics.toFixed(2)}, competition ${w.competition.toFixed(2)}, accessibility ${w.accessibility.toFixed(2)}` });
+    await doRerank('Apply the scoring weights exactly as given; do not reinterpret them.');
+  }, [doRerank]);
 
   const ask = useCallback(async (message: string) => {
     const s = usePlannerStore.getState();
@@ -131,6 +151,7 @@ export const PlannerProvider: FC<{
     // 2) A question about the current ranking → answer it without touching the ranking
     if (s.features.length && classifyIntent(message) === 'question') {
       s.setStatus('reasoning');
+      s.setChatActivity('answering');
       try {
         const text = await answerQuestion(
           { brand: s.brand, suburb: s.suburb, features: s.features, weights: s.weights, result: s.result, history: s.chat.slice(0, -1) },
@@ -141,6 +162,7 @@ export const PlannerProvider: FC<{
         s.addChat({ role: 'agent', text: `Sorry — I couldn't answer that: ${e?.message ?? 'unknown error'}` });
       } finally {
         s.setStatus('done');
+        s.setChatActivity(null);
       }
       return;
     }
@@ -155,7 +177,7 @@ export const PlannerProvider: FC<{
     });
   }, [doRerank]);
 
-  return <Ctx.Provider value={{ placesLib, geocoder, runAnalysis, ask }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ placesLib, geocoder, runAnalysis, ask, rerankWithWeights }}>{children}</Ctx.Provider>;
 };
 
 export const usePlanner = () => {

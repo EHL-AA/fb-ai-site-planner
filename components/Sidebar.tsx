@@ -2,6 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
+import { usePlanner } from '@/contexts/PlannerContext';
 import React from 'react';
 import c from 'classnames';
 import { useUI } from '@/lib/state';
@@ -20,6 +21,8 @@ export default function Sidebar() {
   const { isSidebarOpen, toggleSidebar } = useUI();
   const { weights, setWeights, uploadErrors, reset, brand, suburb, city, features, result } =
     usePlannerStore();
+  const { rerankWithWeights } = usePlanner();
+  const canRerank = features.length > 0 && result != null;
 
   const handleExport = () => {
     const payload = { brand, city, suburb, weights, features, result };
@@ -64,6 +67,9 @@ export default function Sidebar() {
               />
             </label>
           ))}
+          <button type="button" className="sp-rerank-btn" onClick={() => rerankWithWeights()} disabled={!canRerank} title={canRerank ? 'Re-rank the current sites with these weights' : 'Run Find sites first'}>
+            Re-rank with these weights
+          </button>
         </div>
 
         {uploadErrors.length > 0 && (

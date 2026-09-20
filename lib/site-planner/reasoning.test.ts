@@ -109,3 +109,16 @@ describe('describeRankChanges', () => {
     expect(describeRankChanges(null, mk(['a']), feats)).toBe('');
   });
 });
+
+describe('validateRankedResult appliedWeights', () => {
+  const base = { overallSummary: 'x', ranked: [{ id: 'n1', rank: 1, compositeScore0to100: 90, breakdown: { traffic: 1, demographics: 1, competition: 1, accessibility: 1 }, rationale: 'g', risks: '' }] };
+  it('normalises applied weights to sum 1 and rounds to 2 dp', () => {
+    const r = validateRankedResult({ ...base, appliedWeights: { traffic: 2, demographics: 1, competition: 0.5, accessibility: 0.5 } });
+    expect(r.appliedWeights).toEqual({ traffic: 0.5, demographics: 0.25, competition: 0.13, accessibility: 0.13 });
+  });
+  it('drops malformed applied weights instead of failing', () => {
+    const r = validateRankedResult({ ...base, appliedWeights: { traffic: 'a', demographics: 1, competition: 1, accessibility: 1 } });
+    expect(r.appliedWeights).toBeUndefined();
+    expect(validateRankedResult(base).appliedWeights).toBeUndefined();
+  });
+});

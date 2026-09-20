@@ -17,6 +17,7 @@ describe('gatherSignals', () => {
     expect(out[0].affluence.provenance).toBe('measured');
     expect(out[0].congestion.provenance).toBe('unavailable');
     expect(out[1].census.provenance).toBe('unavailable'); // source not supplied → unavailable
+    expect(out[1].census.source).toBe('Stats SA Census 2022 (ward level)'); // human label, not the key
   });
 
   it('converts a synchronous throw from a source to unavailable for every node', async () => {

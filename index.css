@@ -1416,3 +1416,7 @@ gmp-map-3d {
 @media (prefers-reduced-motion: reduce) {
   .dc-card { animation: none; }
 }
+
+.sp-rerank-btn { margin-top: 10px; width: 100%; padding: 9px 12px; border-radius: 10px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid var(--line-2); background: var(--bg-3); color: var(--ink); }
+.sp-rerank-btn:disabled { color: var(--ink-4); cursor: not-allowed; }
+.sp-rerank-btn:not(:disabled):hover { border-color: var(--accent); }

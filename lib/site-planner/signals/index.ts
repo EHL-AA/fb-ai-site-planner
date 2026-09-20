@@ -15,6 +15,10 @@ export const ALL_SOURCES: SignalSource<keyof NodeSignals>[] = [
 ];
 
 const KEYS: (keyof NodeSignals)[] = ['congestion', 'density', 'affluence', 'census', 'tradeHours', 'priceLevel'];
+const KEY_LABELS: Record<keyof NodeSignals, string> = {
+  congestion: 'Google Routes API (live traffic)', density: 'Google Places Aggregate API (1 km counts)', affluence: 'Retail anchor mix (bundled FB dataset)',
+  census: 'Stats SA Census 2022 (ward level)', tradeHours: 'Google Places opening hours', priceLevel: 'Google Places price level',
+};
 
 /** Run every source; a rejected or missing source becomes `unavailable` for all nodes. */
 export async function gatherSignals(
@@ -36,7 +40,7 @@ export async function gatherSignals(
     const out = {} as NodeSignals;
     for (const k of KEYS) {
       const arr = perKey.get(k);
-      (out as any)[k] = arr ? arr[i] : unavailable(k, 'Source not run.');
+      (out as any)[k] = arr ? arr[i] : unavailable(KEY_LABELS[k], 'Source not run.');
     }
     return out;
   });

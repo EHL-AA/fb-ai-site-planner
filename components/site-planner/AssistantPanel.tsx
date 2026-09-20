@@ -15,7 +15,7 @@ const sparkBadge = (size: number): React.CSSProperties => ({
 
 export default function AssistantPanel() {
   const { ask } = usePlanner();
-  const { chat, status, features, result, suburb, city, brand, selectedSiteId, competitorsData } = usePlannerStore();
+  const { chat, status, chatActivity, features, result, suburb, city, brand, selectedSiteId, competitorsData } = usePlannerStore();
   const [collapsed, setCollapsed] = useState(false);
   const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -24,7 +24,7 @@ export default function AssistantPanel() {
   const dataLoaded = competitorsData.length > 0;
   // Chat is usable immediately (query your data) — not gated on running an analysis.
   const suggestions = ready
-    ? ['Weight traffic higher', 'Avoid cannibalisation', 'Show all burger places', 'Why is site 2 ranked above site 1?']
+    ? ['Why is site 1 on top?', 'Which sites suit a drive-through?', 'How confident is this ranking?', 'Weight traffic higher', 'Exclude sites within 2 km of an existing store', 'Show the KFCs nearby']
     : ['Show all burger places', 'Show all pizza places', 'Where are the KFCs'];
 
   const selected = useMemo(
@@ -112,10 +112,20 @@ export default function AssistantPanel() {
         {busy && (
           <div style={{ display: 'flex', gap: 10, alignSelf: 'flex-start', alignItems: 'center' }}>
             <span style={sparkBadge(24)}><Icon name="sparkle" size={13} stroke={2.2} /></span>
-            <div style={{ display: 'inline-flex', gap: 4, padding: '10px 12px', background: 'var(--bg-2)', borderRadius: 12 }}>
-              <span className="bounce-dot" style={{ animationDelay: '0s' }} />
-              <span className="bounce-dot" style={{ animationDelay: '.15s' }} />
-              <span className="bounce-dot" style={{ animationDelay: '.3s' }} />
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 12px', background: 'var(--bg-2)', borderRadius: 12 }}>
+              <span style={{ display: 'inline-flex', gap: 4 }}>
+                <span className="bounce-dot" style={{ animationDelay: '0s' }} />
+                <span className="bounce-dot" style={{ animationDelay: '.15s' }} />
+                <span className="bounce-dot" style={{ animationDelay: '.3s' }} />
+              </span>
+              <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>
+                {chatActivity === 'answering' ? 'Answering from the current ranking…'
+                  : chatActivity === 'reranking' ? `Re-ranking ${features.length} sites (about 45 s)…`
+                  : status === 'detecting' ? 'Scanning Google Places…'
+                  : status === 'enriching' ? 'Gathering traffic, hours and price signals…'
+                  : status === 'reasoning' ? `${REASONING_MODEL_LABEL} is ranking sites…`
+                  : 'Working…'}
+              </span>
             </div>
           </div>
         )}

@@ -2,7 +2,7 @@ import { haversineMeters } from '../geo';
 import { SignalSource, CensusSignal, measured, unavailable } from './types';
 
 export const CENSUS_LABEL = 'Stats SA Census 2022 (ward level)';
-const URL = '/data/census-wards.json';
+const CENSUS_URL = '/data/census-wards.json';
 
 export interface CensusWard { ward: string; muni: string; lat: number; lng: number; population: number; households: number; areaKm2: number; }
 
@@ -12,7 +12,7 @@ export function _resetCensusCache() { cache = null; }
 export async function loadCensusWards(fetchImpl: typeof fetch): Promise<CensusWard[]> {
   if (cache) return cache;
   try {
-    const res = await fetchImpl(URL);
+    const res = await fetchImpl(CENSUS_URL);
     if (!res.ok) return (cache = []);
     const json = await res.json();
     cache = Array.isArray(json) ? json.filter(w => Number.isFinite(w?.lat) && Number.isFinite(w?.lng)) : [];

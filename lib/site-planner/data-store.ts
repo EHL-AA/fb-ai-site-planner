@@ -8,6 +8,8 @@ import {
 } from './types';
 
 export type AnalysisStatus = 'idle' | 'detecting' | 'enriching' | 'reasoning' | 'done' | 'error';
+/** What the chat is doing right now, for the status line under the thread. */
+export type ChatActivity = 'answering' | 'reranking' | null;
 
 /** True while an analysis run is in flight and chat should be blocked. */
 export function isAnalysisBusy(status: AnalysisStatus): boolean {
@@ -38,6 +40,7 @@ interface PlannerState {
   selectedSiteId: string | null;
   chat: ChatMessage[];
   apiCalls: number;
+  chatActivity: ChatActivity;
 
   // Bundled Famous Brands datasets + map layers
   competitorsData: PlaceRec[];
@@ -59,6 +62,7 @@ interface PlannerState {
   setResult: (r: RankedResult | null) => void;
   setStatus: (s: AnalysisStatus) => void;
   setApiCalls: (n: number) => void;
+  setChatActivity: (a: ChatActivity) => void;
   setError: (m: string | null) => void;
   selectSite: (id: string | null) => void;
   addChat: (m: ChatMessage) => void;
@@ -88,6 +92,7 @@ export const usePlannerStore = create<PlannerState>(set => ({
   selectedSiteId: null,
   chat: [],
   apiCalls: 0,
+  chatActivity: null,
   competitorsData: [],
   retailData: [],
   existingStores: [],
@@ -107,6 +112,7 @@ export const usePlannerStore = create<PlannerState>(set => ({
   setResult: result => set({ result }),
   setStatus: status => set({ status }),
   setApiCalls: apiCalls => set({ apiCalls }),
+  setChatActivity: chatActivity => set({ chatActivity }),
   setError: errorMessage => set({ errorMessage }),
   selectSite: selectedSiteId => set({ selectedSiteId }),
   addChat: m => set(s => ({ chat: [...s.chat, m] })),
@@ -117,7 +123,7 @@ export const usePlannerStore = create<PlannerState>(set => ({
   setViewCenter: viewCenter => set({ viewCenter }),
   reset: () => {
     useMapStore.getState().setMarkers([]);
-    set({ candidates: [], features: [], result: null, status: 'idle', errorMessage: null, selectedSiteId: null, chat: [], uploadErrors: [], queryLayer: null, apiCalls: 0 });
+    set({ candidates: [], features: [], result: null, status: 'idle', errorMessage: null, selectedSiteId: null, chat: [], uploadErrors: [], queryLayer: null, apiCalls: 0, chatActivity: null, selection: null, city: '', suburb: '', viewCenter: null, existingStores: [], weights: DEFAULT_WEIGHTS });
   },
 }));
 

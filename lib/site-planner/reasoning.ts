@@ -36,8 +36,15 @@ const RESPONSE_SCHEMA = {
         required: ['id', 'rank', 'compositeScore0to100', 'breakdown', 'rationale', 'risks'],
       },
     },
+    appliedWeights: {
+      type: 'OBJECT',
+      properties: {
+        traffic: { type: 'NUMBER' }, demographics: { type: 'NUMBER' }, competition: { type: 'NUMBER' }, accessibility: { type: 'NUMBER' },
+      },
+      required: ['traffic', 'demographics', 'competition', 'accessibility'],
+    },
   },
-  required: ['overallSummary', 'ranked'],
+  required: ['overallSummary', 'ranked', 'appliedWeights'],
 };
 
 const SYSTEM = `You are a retail site-selection analyst for Famous Brands, a South African
@@ -82,7 +89,7 @@ export function buildPrompt({ brand, suburb, features, weights, constraints }: P
     provenanceBlock(features),
     `Candidate sites (JSON):`,
     JSON.stringify(features.map(({ sources, ...rest }) => rest), null, 2),
-    `Return the ranked result strictly as JSON matching the schema. Include every candidate id exactly once.`,
+    `Return the ranked result strictly as JSON matching the schema. Include every candidate id exactly once. In appliedWeights, return the four pillar weights you actually used (if the constraints asked you to weight something higher or lower, reflect that; otherwise return the given weights).`,
   ].filter(Boolean).join('\n\n');
 }
 
@@ -97,6 +104,17 @@ export function validateRankedResult(data: any): RankedResult {
     if (!item.breakdown || typeof item.breakdown !== 'object') throw new Error(`ranked item ${item.id} missing breakdown`);
     if (typeof item.rationale !== 'string') throw new Error(`ranked item ${item.id} missing rationale`);
     if (typeof item.risks !== 'string') throw new Error(`ranked item ${item.id} missing risks`);
+  }
+  const w = data.appliedWeights;
+  if (w && typeof w === 'object') {
+    const keys = ['traffic', 'demographics', 'competition', 'accessibility'] as const;
+    const vals = keys.map(k => (typeof w[k] === 'number' && Number.isFinite(w[k]) && w[k] >= 0 ? w[k] : NaN));
+    const sum = vals.reduce((a, b) => a + b, 0);
+    if (vals.every(Number.isFinite) && sum > 0) {
+      data.appliedWeights = Object.fromEntries(keys.map((k, i) => [k, Math.round((vals[i] / sum) * 100) / 100]));
+    } else {
+      delete data.appliedWeights;
+    }
   }
   return data as RankedResult;
 }

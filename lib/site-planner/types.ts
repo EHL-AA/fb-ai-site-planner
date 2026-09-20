@@ -55,6 +55,8 @@ export interface RankedSite {
 export interface RankedResult {
   overallSummary: string;
   ranked: RankedSite[];
+  /** Weights the model actually applied (normalised to sum 1). Present after a re-rank that changed them. */
+  appliedWeights?: ScoringWeights;
 }
 
 export interface ScoringWeights { traffic: number; demographics: number; competition: number; accessibility: number; }
