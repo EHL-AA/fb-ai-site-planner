@@ -75,7 +75,7 @@ export function buildPrompt({ brand, suburb, features, weights, constraints }: P
     constraints ? `Additional user constraints: ${constraints}` : '',
     provenanceBlock(features),
     `Candidate sites (JSON):`,
-    JSON.stringify(features, null, 2),
+    JSON.stringify(features.map(({ sources, ...rest }) => rest), null, 2),
     `Return the ranked result strictly as JSON matching the schema. Include every candidate id exactly once.`,
   ].filter(Boolean).join('\n\n');
 }

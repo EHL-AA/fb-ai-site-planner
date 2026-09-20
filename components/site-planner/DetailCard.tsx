@@ -122,9 +122,6 @@ export default function DetailCard() {
         </div>
         <div style={{ padding: '14px 18px', borderLeft: '1px solid var(--line)' }}>
           <div style={{ fontSize: 11, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Data sources</div>
-          <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 11, color: 'var(--ink-2)', flex: 1 }}>Google Places review density</span><ProvBadge p="proxy" />
-          </div>
           {site.sources.map(s => (
             <div key={s.label} style={{ marginBottom: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -134,7 +131,6 @@ export default function DetailCard() {
               {s.note && <div style={{ fontSize: 10.5, color: 'var(--ink-3)', marginTop: 1, lineHeight: 1.4 }}>{s.note}</div>}
             </div>
           ))}
-          {site.sources.length === 0 && <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>Review-density proxy only.</div>}
         </div>
       </div>
     </div>

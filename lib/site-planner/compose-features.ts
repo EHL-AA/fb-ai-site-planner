@@ -42,10 +42,19 @@ export function accessibilityBonus(driveMinutes: number | null): number {
   return Math.round(20 * (15 - driveMinutes) / 10);
 }
 
+const REVIEW_DENSITY_ROW: SourceRow = {
+  label: 'Google Places review density',
+  provenance: 'proxy',
+  note: 'Review-count density of nearby businesses from the Places sweep; always present.',
+};
+
 export function flattenSources(s: NodeSignals): SourceRow[] {
-  return (['congestion', 'density', 'affluence', 'census', 'footTraffic'] as const).map(k => ({
-    label: s[k].source, provenance: s[k].provenance, note: s[k].note,
-  }));
+  return [
+    REVIEW_DENSITY_ROW,
+    ...(['congestion', 'density', 'affluence', 'census', 'footTraffic'] as const).map(k => ({
+      label: s[k].source, provenance: s[k].provenance, note: s[k].note,
+    })),
+  ];
 }
 
 /** computeFeatures + provenance-tagged signals → blended scores. */

@@ -56,10 +56,15 @@ describe('accessibilityBonus', () => {
 });
 
 describe('flattenSources', () => {
-  it('lists one row per signal', () => {
+  it('prepends the review-density proxy row, then one row per signal', () => {
     const rows = flattenSources(none());
-    expect(rows).toHaveLength(5);
-    expect(rows[0]).toEqual({ label: 'R', provenance: 'unavailable', note: 'x' });
+    expect(rows).toHaveLength(6);
+    expect(rows[0]).toEqual({
+      label: 'Google Places review density',
+      provenance: 'proxy',
+      note: 'Review-count density of nearby businesses from the Places sweep; always present.',
+    });
+    expect(rows[1]).toEqual({ label: 'R', provenance: 'unavailable', note: 'x' });
   });
 });
 
@@ -69,7 +74,7 @@ describe('composeFeatures', () => {
     s.congestion = measured({ index0to100: 100, driveMinutesFromCentre: 4 }, 'R');
     const fv = composeFeatures([node('a', [poi(500)])], [s], { competitors: [], stores: [], demographics: [] });
     expect(fv[0].signals).toBe(s);
-    expect(fv[0].sources).toHaveLength(5);
+    expect(fv[0].sources).toHaveLength(6);
     expect(fv[0].trafficProxy.score0to100).toBeGreaterThan(50);
     expect(fv[0].accessibility.score0to100).toBeGreaterThanOrEqual(20);
   });
