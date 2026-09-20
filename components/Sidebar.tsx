@@ -61,7 +61,7 @@ export default function Sidebar() {
                 type="range"
                 min={0}
                 max={1}
-                step={0.05}
+                step={0.01}
                 value={weights[key]}
                 onChange={e => setWeights({ ...weights, [key]: Number(e.target.value) })}
               />
