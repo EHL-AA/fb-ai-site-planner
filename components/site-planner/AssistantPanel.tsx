@@ -24,7 +24,7 @@ export default function AssistantPanel() {
   const dataLoaded = competitorsData.length > 0;
   // Chat is usable immediately (query your data) — not gated on running an analysis.
   const suggestions = ready
-    ? ['Weight foot traffic higher', 'Avoid cannibalisation', 'Show all burger places', 'Why is site 2 ranked above site 1?']
+    ? ['Weight traffic higher', 'Avoid cannibalisation', 'Show all burger places', 'Why is site 2 ranked above site 1?']
     : ['Show all burger places', 'Show all pizza places', 'Where are the KFCs'];
 
   const selected = useMemo(

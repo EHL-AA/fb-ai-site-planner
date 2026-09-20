@@ -104,7 +104,7 @@ export default function DetailCard() {
           <Stat
             label="Price band"
             value={sig?.priceLevel.value ? `${sig.priceLevel.value.meanLevel} / 4` : 'n/a'}
-            sub={sig?.priceLevel.value ? `avg of ${sig.priceLevel.value.sample} nearby businesses` : 'no price bands nearby'}
+            sub={sig?.priceLevel.value ? (sig.priceLevel.provenance === 'proxy' ? `suburb-wide avg of ${sig.priceLevel.value.sample}` : `avg of ${sig.priceLevel.value.sample} within 600 m`) : 'no price bands in suburb'}
             tone={sig?.priceLevel.value ? 'default' : 'muted'} />
           <Stat label="Demand" value={demandValue} sub={site.demographics.source === 'csv' ? 'from your CSV' : 'blended affluence'} />
           <Stat label="Competitors" value={`${site.competitorsWithin1km}`} sub={site.nearestCompetitorM != null ? `nearest ${site.nearestCompetitorM} m` : 'within 1 km'} />
