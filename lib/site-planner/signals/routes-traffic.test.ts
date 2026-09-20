@@ -1,11 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
-import { legEndpoints, nextWeekdayPeakIso, congestionIndex, routesTrafficSource } from './routes-traffic';
+import { legEndpoints, nextWeekdayPeakIso, nextWeekdaySlotIso, congestionIndex, routesTrafficSource } from './routes-traffic';
 import { CallBudget, SignalContext } from './types';
 import { haversineMeters } from '../geo';
 
 const ctxWith = (fetchImpl: any, max = 250): SignalContext => ({
   selection: { placeId: 'p', suburb: 'S', city: 'C', center: { lat: -26.1, lng: 28.05 }, viewport: { north: 0, south: 0, east: 0, west: 0 } },
-  mapsApiKey: 'k', fetchImpl, budget: new CallBudget(max), now: new Date('2026-09-20T08:00:00Z'), retail: [], footTrafficRows: [],
+  mapsApiKey: 'k', fetchImpl, budget: new CallBudget(max), now: new Date('2026-09-20T08:00:00Z'), retail: [], swept: [],
 });
 const node = { id: 'n1', label: 'n1', lat: -26.1, lng: 28.05, places: [] };
 
@@ -27,6 +27,15 @@ describe('nextWeekdayPeakIso', () => {
   });
 });
 
+describe('nextWeekdaySlotIso', () => {
+  it('returns 05:30Z / 10:30Z / 15:30Z for morning / midday / evening', () => {
+    const now = new Date('2026-09-22T08:00:00Z'); // Tuesday 10:00 SAST
+    expect(nextWeekdaySlotIso(now, 'morning')).toBe('2026-09-23T05:30:00.000Z'); // already past → Wed
+    expect(nextWeekdaySlotIso(now, 'midday')).toBe('2026-09-22T10:30:00.000Z');
+    expect(nextWeekdaySlotIso(now, 'evening')).toBe('2026-09-22T15:30:00.000Z');
+  });
+});
+
 describe('congestionIndex', () => {
   it('maps ratio 1.0 -> 0, 1.3 -> 50, >=1.6 -> 100', () => {
     expect(congestionIndex([1])).toBe(0);
@@ -37,16 +46,16 @@ describe('congestionIndex', () => {
 });
 
 describe('routesTrafficSource', () => {
-  it('computes index from 4 legs + drive time from centre', async () => {
+  it('computes three slot indices from 4 legs each + drive time from centre', async () => {
     let calls = 0;
     const fetchImpl = async () => {
       calls++;
       return { ok: true, json: async () => ({ routes: [{ duration: '780s', staticDuration: '600s' }] }) } as any;
     };
     const [sig] = await routesTrafficSource.enrich([node], ctxWith(fetchImpl));
-    expect(calls).toBe(5);
+    expect(calls).toBe(13);
     expect(sig.provenance).toBe('measured');
-    expect(sig.value).toEqual({ index0to100: 50, driveMinutesFromCentre: 13 });
+    expect(sig.value).toEqual({ index0to100: 50, slots: { morning: 50, midday: 50, evening: 50 }, driveMinutesFromCentre: 13 });
   });
   it('becomes unavailable on HTTP error without throwing', async () => {
     const fetchImpl = async () => ({ ok: false, status: 403, json: async () => ({ error: { status: 'PERMISSION_DENIED' } }) } as any);

@@ -47,6 +47,7 @@ export default function DetailCard() {
     : site.demographics.income != null ? `R${Math.round(site.demographics.income / 1000)}k`
     : `${site.demographics.affluenceProxy0to100}`;
   const sig = site.signals;
+  const slots = sig?.congestion.value?.slots;
 
   return (
     <div className="dc-card">
@@ -76,34 +77,38 @@ export default function DetailCard() {
         <div className="dc-stats">
           <Stat label="Foot proxy" value={fmtK(site.totalReviews)} sub={`reviews · ${site.poiCount} POIs`} />
           <Stat
-            label="Foot traffic"
-            value={sig?.footTraffic.value ? `${fmtK(sig.footTraffic.value.dailyVisits)}/day` : 'n/a'}
-            sub={sig?.footTraffic.value ? 'vendor feed' : 'no feed connected'}
-            tone={sig?.footTraffic.value ? 'default' : 'muted'} />
+            label="Morning traffic"
+            value={slots?.morning != null ? `${slots.morning}` : 'n/a'}
+            sub="congestion, weekday 07:30"
+            tone={slots?.morning != null ? 'default' : 'muted'} />
           <Stat
-            label="Congestion"
-            value={sig?.congestion.value ? `${sig.congestion.value.index0to100}` : 'n/a'}
-            sub={sig?.congestion.value?.driveMinutesFromCentre != null ? `${sig.congestion.value.driveMinutesFromCentre} min from centre` : 'weekday 17:30'}
-            tone={sig?.congestion.value ? 'default' : 'muted'} />
+            label="Lunch traffic"
+            value={slots?.midday != null ? `${slots.midday}` : 'n/a'}
+            sub="congestion, weekday 12:30"
+            tone={slots?.midday != null ? 'default' : 'muted'} />
+          <Stat
+            label="Evening traffic"
+            value={slots?.evening != null ? `${slots.evening}` : 'n/a'}
+            sub={sig?.congestion.value?.driveMinutesFromCentre != null ? `17:30 · ${sig.congestion.value.driveMinutesFromCentre} min from centre` : 'congestion, weekday 17:30'}
+            tone={slots?.evening != null ? 'default' : 'muted'} />
+          <Stat
+            label="Evening trade"
+            value={sig?.tradeHours.value ? `${sig.tradeHours.value.openLate0to100}%` : 'n/a'}
+            sub={sig?.tradeHours.value ? `open after 20:00 · ${sig.tradeHours.value.openSunday0to100}% Sundays` : 'no opening hours nearby'}
+            tone={sig?.tradeHours.value ? 'default' : 'muted'} />
           <Stat
             label="Day / evening"
             value={sig?.density.value ? `${sig.density.value.daytimeIndex0to100} / ${sig.density.value.eveningIndex0to100}` : 'n/a'}
             sub="density within 1 km"
             tone={sig?.density.value ? 'default' : 'muted'} />
-          <Stat label="Demand" value={demandValue} sub={site.demographics.source === 'csv' ? 'from your CSV' : 'blended proxy'} />
           <Stat
-            label="Affluence"
-            value={sig?.affluence.value ? `${sig.affluence.value.index0to100}` : 'n/a'}
-            sub={sig?.affluence.value ? `${sig.affluence.value.premiumAnchors} premium · ${sig.affluence.value.valueAnchors} value` : 'retail mix'}
-            tone={sig?.affluence.value ? 'default' : 'muted'} />
-          <Stat
-            label="Ward pop."
-            value={sig?.census.value ? fmtK(sig.census.value.population) : 'n/a'}
-            sub={sig?.census.value ? `${sig.census.value.densityPerKm2}/km²` : 'census not loaded'}
-            tone={sig?.census.value ? 'default' : 'muted'} />
+            label="Price band"
+            value={sig?.priceLevel.value ? `${sig.priceLevel.value.meanLevel} / 4` : 'n/a'}
+            sub={sig?.priceLevel.value ? `avg of ${sig.priceLevel.value.sample} nearby businesses` : 'no price bands nearby'}
+            tone={sig?.priceLevel.value ? 'default' : 'muted'} />
+          <Stat label="Demand" value={demandValue} sub={site.demographics.source === 'csv' ? 'from your CSV' : 'blended affluence'} />
           <Stat label="Competitors" value={`${site.competitorsWithin1km}`} sub={site.nearestCompetitorM != null ? `nearest ${site.nearestCompetitorM} m` : 'within 1 km'} />
           <Stat label="Cannibalisation" value={`${site.ownStoresWithin2km}`} sub={site.nearestOwnStoreM != null ? `nearest ${site.nearestOwnStoreM} m` : 'own stores within 2 km'} tone={cannibalTone} />
-          <Stat label="Transit" value={`${site.transitStopsNearby}`} sub="stops nearby" />
         </div>
 
         {/* Planner take + right rail */}

@@ -1,13 +1,13 @@
 import React from 'react';
-import { parseCompetitors, parseStores, parseDemographics, parseFootTraffic } from '@/lib/site-planner/csv';
+import { parseCompetitors, parseStores, parseDemographics } from '@/lib/site-planner/csv';
 import { usePlannerStore } from '@/lib/site-planner/data-store';
 
-type Kind = 'competitors' | 'stores' | 'demographics' | 'footTraffic';
+type Kind = 'competitors' | 'stores' | 'demographics';
 
 export default function DataUpload() {
   const {
-    competitors, stores, demographics, footTraffic,
-    setCompetitors, setStores, setDemographics, setFootTraffic, addUploadErrors,
+    competitors, stores, demographics,
+    setCompetitors, setStores, setDemographics, addUploadErrors,
   } = usePlannerStore();
 
   const onFile = (kind: Kind) => async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -29,11 +29,6 @@ export default function DataUpload() {
       setDemographics(records);
       if (errors.length) addUploadErrors(errors.map(x => `demographics: ${x}`));
     }
-    if (kind === 'footTraffic') {
-      const { records, errors } = parseFootTraffic(text);
-      setFootTraffic(records);
-      if (errors.length) addUploadErrors(errors.map(x => `foot traffic: ${x}`));
-    }
     e.target.value = '';
   };
 
@@ -49,7 +44,6 @@ export default function DataUpload() {
       {row('competitors', 'Competitor locations', competitors.length)}
       {row('stores', 'Your existing stores', stores.length)}
       {row('demographics', 'Demographics (optional)', demographics.length)}
-      {row('footTraffic', 'Foot traffic (vendor export: lat, lng, daily_visits)', footTraffic.length)}
     </div>
   );
 }

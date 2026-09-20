@@ -5,7 +5,7 @@ import { CallBudget, SignalContext } from './types';
 const rec = (b: string, lat: number, lng: number) => ({ b, n: b, a: '', lat, lng });
 const ctxWith = (retail: any[]): SignalContext => ({
   selection: { placeId: 'p', suburb: 'S', city: 'C', center: { lat: -26.1, lng: 28.05 }, viewport: { north: 0, south: 0, east: 0, west: 0 } },
-  mapsApiKey: '', fetchImpl: fetch, budget: new CallBudget(), now: new Date(), retail, footTrafficRows: [],
+  mapsApiKey: '', fetchImpl: fetch, budget: new CallBudget(), now: new Date(), retail, swept: [],
 });
 const node = { id: 'n', label: 'n', lat: -26.1, lng: 28.05, places: [] };
 

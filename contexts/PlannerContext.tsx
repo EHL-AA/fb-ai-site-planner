@@ -49,7 +49,7 @@ export const PlannerProvider: FC<{
         range: 15000, tilt: 25, heading: 0, roll: 0,
       });
 
-      const nodes = await detectCommercialNodes({ placesLib, center, viewport });
+      const { nodes, swept } = await detectCommercialNodes({ placesLib, center, viewport });
       if (!nodes.length) { s.setError(`No commercial nodes found in ${suburb}. Try a larger or busier suburb.`); s.setStatus('error'); return; }
       s.setCandidates(nodes);
 
@@ -71,7 +71,7 @@ export const PlannerProvider: FC<{
       const budget = new CallBudget();
       const signals = await gatherSignals(nodes, {
         selection, mapsApiKey, fetchImpl: fetch.bind(window), budget, now: new Date(),
-        retail: s.retailData, footTrafficRows: s.footTraffic,
+        retail: s.retailData, swept,
       });
       s.setApiCalls(budget.used);
       const features = composeFeatures(nodes, signals, { competitors, stores, demographics: s.demographics }, suburb);

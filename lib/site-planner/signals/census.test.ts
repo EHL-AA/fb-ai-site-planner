@@ -8,7 +8,7 @@ const wards: CensusWard[] = [
 ];
 const ctxWith = (fetchImpl: any): SignalContext => ({
   selection: { placeId: 'p', suburb: 'S', city: 'C', center: { lat: -26.1, lng: 28.05 }, viewport: { north: 0, south: 0, east: 0, west: 0 } },
-  mapsApiKey: '', fetchImpl, budget: new CallBudget(), now: new Date(), retail: [], footTrafficRows: [],
+  mapsApiKey: '', fetchImpl, budget: new CallBudget(), now: new Date(), retail: [], swept: [],
 });
 const node = { id: 'n', label: 'n', lat: -26.101, lng: 28.051, places: [] };
 

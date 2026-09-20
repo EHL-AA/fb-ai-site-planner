@@ -1,4 +1,4 @@
-import { CandidateNode, SuburbSelection, FootTrafficRecord } from '../types';
+import { CandidateNode, SuburbSelection, RawPlace } from '../types';
 import { PlaceRec } from '../places-data';
 
 export type Provenance = 'measured' | 'proxy' | 'unavailable';
@@ -26,7 +26,7 @@ export function unavailable<T>(source: string, note: string): Signal<T | null> {
 export class CallBudget {
   private counts: Record<string, number> = {};
   private total = 0;
-  constructor(readonly max = 250) {}
+  constructor(readonly max = 300) {}
   /** Reserve one call. Returns false (and does not count) when the budget is spent. */
   take(api: string): boolean {
     if (this.total >= this.max) return false;
@@ -46,22 +46,29 @@ export interface SignalContext {
   now: Date;
   /** Bundled retail anchors (public/data/retail.json). */
   retail: PlaceRec[];
-  /** Uploaded vendor foot-traffic rows (may be empty). */
-  footTrafficRows: FootTrafficRecord[];
+  /** Every POI the suburb sweep returned; suburb-wide fallback for sparse per-node samples. */
+  swept: RawPlace[];
 }
 
-export interface CongestionSignal { index0to100: number; driveMinutesFromCentre: number | null; }
+/** Live-vs-free-flow congestion at three weekday departure slots (SAST). `index0to100` is the busiest slot. */
+export interface CongestionSignal {
+  index0to100: number;
+  slots: { morning: number | null; midday: number | null; evening: number | null };
+  driveMinutesFromCentre: number | null;
+}
 export interface DensitySignal { daytimeIndex0to100: number; eveningIndex0to100: number; counts: Record<string, number>; }
 export interface AffluenceSignal { index0to100: number; premiumAnchors: number; valueAnchors: number; }
 export interface CensusSignal { ward: string; population: number; households: number; densityPerKm2: number; }
-export interface FootTrafficSignal { dailyVisits: number; peakHour?: number; }
+export interface TradeHoursSignal { openLate0to100: number; openSunday0to100: number; sample: number; }
+export interface PriceLevelSignal { meanLevel: number; index0to100: number; sample: number; }
 
 export interface NodeSignals {
   congestion: Signal<CongestionSignal | null>;
   density: Signal<DensitySignal | null>;
   affluence: Signal<AffluenceSignal | null>;
   census: Signal<CensusSignal | null>;
-  footTraffic: Signal<FootTrafficSignal | null>;
+  tradeHours: Signal<TradeHoursSignal | null>;
+  priceLevel: Signal<PriceLevelSignal | null>;
 }
 
 export interface SignalSource<K extends keyof NodeSignals> {

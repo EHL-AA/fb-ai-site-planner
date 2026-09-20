@@ -5,6 +5,23 @@
 **Owner:** ethan@automationarchitects.ai
 **Builds on:** `2026-05-20-famous-brands-site-planner-design.md`
 
+> **Revision 2026-09-20 (b) — foot traffic removed, traffic/affluence signals from Google added.**
+> After the first live runs the owner ruled that a foot-traffic feed will not be
+> sourced. The `footTraffic` key, its adapter (§3.3), CSV upload and 0.40 weight
+> are removed. In their place, three zero-cost signals derived from data Google
+> already returns: (1) Routes congestion is now measured at **three weekday
+> departure slots** (07:30 / 12:30 / 17:30 SAST; 13 calls per node), exposing
+> morning/lunch/evening busyness; (2) **`tradeHours`** — share of businesses
+> within 600 m open after 20:00 and on Sundays, from `regularOpeningHours`;
+> (3) **`priceLevel`** — mean Google price band within 600 m, with a suburb-wide
+> `proxy` fallback when fewer than 3 nearby businesses carry one. Each node now
+> carries `nearby` (all swept POIs within 600 m) and `SignalContext.swept` holds
+> the whole sweep. Blend weights (§3.6): traffic = peak 0.25, lunch 0.15,
+> tradeHours 0.15, density 0.20, review 0.25; demographics = priceLevel 0.40,
+> retailMix 0.20, census 0.40 (an uploaded LSM replaces both Google affluence
+> parts at 0.60). Sections below describe the original design; where they
+> mention foot traffic, this note supersedes them.
+
 ## 1. Summary
 
 Two changes to the Famous Brands Site Planner:
@@ -126,7 +143,9 @@ source id. Each source returns one entry per node in the same order.
 | `placesDensity` | Places Aggregate `computeInsights` | counts within 1 km for: `corporate_office`, `school`, `university`, `gym`, `supermarket`, `bar`, `restaurant`, `cafe`; derived `daytimeIndex0to100` (offices+schools+universities), `eveningIndex0to100` (bars+restaurants+cafes), log-scaled against the busiest node | measured (counts) / proxy (indices) | 8 |
 | `retailMix` | Bundled `retail.json` | within 2 km: `premiumAnchors` (Woolworths, Checkers), `valueAnchors` (Boxer, Usave, Shoprite), `affluenceIndex0to100 = premium / (premium+value)` scaled, `unavailable` if < 2 anchors | proxy | 0 |
 | `census` | Bundled Stats SA ward CSV | nearest ward: `population`, `households`, `densityPerKm2` | measured | 0 |
-| `footTraffic` | Adapter (see 3.3) | `dailyVisits`, `peakHour` | measured or unavailable | 0 (CSV) |
+| `tradeHours` | Places sweep `regularOpeningHours` | within 600 m: `openLate0to100`, `openSunday0to100`, `sample` | measured | 0 |
+| `priceLevel` | Places sweep `priceLevel` | within 600 m: `meanLevel` (1–4), `index0to100`, `sample`; suburb-wide fallback | measured / proxy (fallback) | 0 |
+| ~~`footTraffic`~~ | removed in revision (b) | — | — | — |
 
 Spar and Pick n Pay are deliberately unclassified: they straddle the
 premium/value line in South Africa. This excludes roughly half of bundled

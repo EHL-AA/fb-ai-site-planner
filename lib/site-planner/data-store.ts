@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { useMapStore } from '@/lib/state';
 import { PlaceRec } from './places-data';
 import {
-  CompetitorRecord, StoreRecord, DemographicRecord, FootTrafficRecord,
+  CompetitorRecord, StoreRecord, DemographicRecord,
   CandidateNode, FeatureVector, RankedResult, ScoringWeights, DEFAULT_WEIGHTS,
   SuburbSelection,
 } from './types';
@@ -28,7 +28,6 @@ interface PlannerState {
   competitors: CompetitorRecord[];
   stores: StoreRecord[];
   demographics: DemographicRecord[];
-  footTraffic: FootTrafficRecord[];
   uploadErrors: string[];
 
   candidates: CandidateNode[];
@@ -54,7 +53,6 @@ interface PlannerState {
   setCompetitors: (r: CompetitorRecord[]) => void;
   setStores: (r: StoreRecord[]) => void;
   setDemographics: (r: DemographicRecord[]) => void;
-  setFootTraffic: (r: FootTrafficRecord[]) => void;
   addUploadErrors: (e: string[]) => void;
   setCandidates: (c: CandidateNode[]) => void;
   setFeatures: (f: FeatureVector[]) => void;
@@ -81,7 +79,6 @@ export const usePlannerStore = create<PlannerState>(set => ({
   competitors: [],
   stores: [],
   demographics: [],
-  footTraffic: [],
   uploadErrors: [],
   candidates: [],
   features: [],
@@ -104,7 +101,6 @@ export const usePlannerStore = create<PlannerState>(set => ({
   setCompetitors: competitors => set({ competitors }),
   setStores: stores => set({ stores }),
   setDemographics: demographics => set({ demographics }),
-  setFootTraffic: footTraffic => set({ footTraffic }),
   addUploadErrors: e => set(s => ({ uploadErrors: [...s.uploadErrors, ...e] })),
   setCandidates: candidates => set({ candidates }),
   setFeatures: features => set({ features }),

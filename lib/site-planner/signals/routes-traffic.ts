@@ -18,13 +18,24 @@ export function legEndpoints(center: LatLng, distanceM = 1500): LatLng[] {
   ];
 }
 
-/** Next weekday 17:30 Africa/Johannesburg (= 15:30Z, SAST has no DST) strictly after `now`. */
-export function nextWeekdayPeakIso(now: Date): string {
-  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 15, 30, 0, 0));
+/** Departure slots, weekday local time (SAST = UTC+2, no DST). */
+export const SLOTS = { morning: { h: 5, m: 30 }, midday: { h: 10, m: 30 }, evening: { h: 15, m: 30 } } as const;
+export type SlotName = keyof typeof SLOTS;
+
+/** Next weekday at the given UTC time strictly after `now`. */
+export function nextWeekdaySlotIso(now: Date, slot: SlotName): string {
+  const { h, m } = SLOTS[slot];
+  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), h, m, 0, 0));
   if (d <= now) d.setUTCDate(d.getUTCDate() + 1);
   while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() + 1);
   return d.toISOString();
 }
+
+/** Next weekday 17:30 Africa/Johannesburg (= 15:30Z) strictly after `now`. */
+export function nextWeekdayPeakIso(now: Date): string {
+  return nextWeekdaySlotIso(now, 'evening');
+}
+
 
 export function congestionIndex(ratios: number[]): number {
   if (!ratios.length) return 0;
@@ -64,19 +75,34 @@ export async function computeRoute(ctx: SignalContext, origin: LatLng, dest: Lat
   return { durationS, staticS };
 }
 
-async function enrichNode(node: CandidateNode, ctx: SignalContext, departureIso: string): Promise<Signal<CongestionSignal | null>> {
+type Leg = { durationS: number; staticS: number } | null;
+
+async function slotIndex(ctx: SignalContext, origin: LatLng, legs: LatLng[], departureIso: string): Promise<number | null> {
+  const results: Leg[] = await Promise.all(legs.map(dest => computeRoute(ctx, origin, dest, departureIso)));
+  const ratios = results.filter((r): r is NonNullable<Leg> => !!r).map(r => r.durationS / r.staticS);
+  return ratios.length ? congestionIndex(ratios) : null;
+}
+
+async function enrichNode(node: CandidateNode, ctx: SignalContext, departures: Record<SlotName, string>): Promise<Signal<CongestionSignal | null>> {
   try {
-    const legs = legEndpoints({ lat: node.lat, lng: node.lng });
-    const [legResults, fromCentre] = await Promise.all([
-      Promise.all(legs.map(dest => computeRoute(ctx, { lat: node.lat, lng: node.lng }, dest, departureIso))),
-      computeRoute(ctx, ctx.selection.center, { lat: node.lat, lng: node.lng }, departureIso),
+    const origin = { lat: node.lat, lng: node.lng };
+    const legs = legEndpoints(origin);
+    const [morning, midday, evening, fromCentre] = await Promise.all([
+      slotIndex(ctx, origin, legs, departures.morning),
+      slotIndex(ctx, origin, legs, departures.midday),
+      slotIndex(ctx, origin, legs, departures.evening),
+      computeRoute(ctx, ctx.selection.center, origin, departures.evening),
     ]);
-    const ratios = legResults.filter((r): r is { durationS: number; staticS: number } => !!r).map(r => r.durationS / r.staticS);
-    if (!ratios.length) return unavailable(ROUTES_SOURCE_LABEL, 'Routes API returned no traffic-aware routes (check key/quota).');
+    const live = [morning, midday, evening].filter((v): v is number => v != null);
+    if (!live.length) return unavailable(ROUTES_SOURCE_LABEL, 'Routes API returned no traffic-aware routes (check key/quota).');
     return measured(
-      { index0to100: congestionIndex(ratios), driveMinutesFromCentre: fromCentre ? Math.round(fromCentre.durationS / 60) : null },
+      {
+        index0to100: Math.max(...live),
+        slots: { morning, midday, evening },
+        driveMinutesFromCentre: fromCentre ? Math.round(fromCentre.durationS / 60) : null,
+      },
       ROUTES_SOURCE_LABEL,
-      'Weekday 17:30 live vs free-flow drive time on 4 × 1.5 km legs.',
+      'Live vs free-flow drive time on 4 × 1.5 km legs at weekday 07:30, 12:30 and 17:30.',
     );
   } catch (e) {
     console.warn('routesTrafficSource failed for', node.id, e);
@@ -88,7 +114,11 @@ export const routesTrafficSource: SignalSource<'congestion'> = {
   id: 'congestion',
   label: ROUTES_SOURCE_LABEL,
   async enrich(nodes, ctx) {
-    const departureIso = nextWeekdayPeakIso(ctx.now);
-    return Promise.all(nodes.map(n => enrichNode(n, ctx, departureIso)));
+    const departures = {
+      morning: nextWeekdaySlotIso(ctx.now, 'morning'),
+      midday: nextWeekdaySlotIso(ctx.now, 'midday'),
+      evening: nextWeekdaySlotIso(ctx.now, 'evening'),
+    };
+    return Promise.all(nodes.map(n => enrichNode(n, ctx, departures)));
   },
 };

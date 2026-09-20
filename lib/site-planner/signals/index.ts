@@ -4,16 +4,17 @@ import { routesTrafficSource } from './routes-traffic';
 import { placesDensitySource } from './places-density';
 import { retailMixSource } from './retail-mix';
 import { censusSource } from './census';
-import { footTrafficSource } from './foot-traffic';
+import { tradeHoursSource } from './trade-hours';
+import { priceLevelSource } from './price-level';
 
 export { CallBudget } from './types';
 export type { NodeSignals, SignalContext, SignalSource } from './types';
 
 export const ALL_SOURCES: SignalSource<keyof NodeSignals>[] = [
-  routesTrafficSource, placesDensitySource, retailMixSource, censusSource, footTrafficSource,
+  routesTrafficSource, placesDensitySource, retailMixSource, censusSource, tradeHoursSource, priceLevelSource,
 ];
 
-const KEYS: (keyof NodeSignals)[] = ['congestion', 'density', 'affluence', 'census', 'footTraffic'];
+const KEYS: (keyof NodeSignals)[] = ['congestion', 'density', 'affluence', 'census', 'tradeHours', 'priceLevel'];
 
 /** Run every source; a rejected or missing source becomes `unavailable` for all nodes. */
 export async function gatherSignals(

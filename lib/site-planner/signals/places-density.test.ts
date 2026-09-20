@@ -4,7 +4,7 @@ import { CallBudget, SignalContext } from './types';
 
 const ctxWith = (fetchImpl: any): SignalContext => ({
   selection: { placeId: 'p', suburb: 'S', city: 'C', center: { lat: -26.1, lng: 28.05 }, viewport: { north: 0, south: 0, east: 0, west: 0 } },
-  mapsApiKey: 'k', fetchImpl, budget: new CallBudget(), now: new Date(), retail: [], footTrafficRows: [],
+  mapsApiKey: 'k', fetchImpl, budget: new CallBudget(), now: new Date(), retail: [], swept: [],
 });
 const node = (id: string) => ({ id, label: id, lat: -26.1, lng: 28.05, places: [] });
 
@@ -64,8 +64,7 @@ describe('placesDensitySource', () => {
       fetchImpl: async () => { throw new Error('fetchImpl should not be called'); },
       budget,
       now: new Date(),
-      retail: [],
-      footTrafficRows: [],
+      retail: [], swept: [],
     };
     const sigs = await placesDensitySource.enrich([node('a')], ctx);
     expect(sigs[0].provenance).toBe('unavailable');
@@ -83,8 +82,7 @@ describe('placesDensitySource', () => {
       fetchImpl,
       budget,
       now: new Date(),
-      retail: [],
-      footTrafficRows: [],
+      retail: [], swept: [],
     };
     const sigs = await placesDensitySource.enrich([node('a'), node('b')], ctx);
     expect(sigs[0].provenance).toBe('unavailable');

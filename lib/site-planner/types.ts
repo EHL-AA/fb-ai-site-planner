@@ -11,6 +11,10 @@ export interface RawPlace {
   types: string[];
   primaryType?: string;
   displayName?: string;
+  /** Google price band 1 (inexpensive) … 4 (very expensive); absent when Google has none. */
+  priceLevel?: 1 | 2 | 3 | 4;
+  /** Regular opening periods; day 0 = Sunday, minutes since midnight. Close absent for 24-hour places. */
+  openPeriods?: Array<{ openDay: number; openMinute: number; closeDay?: number; closeMinute?: number }>;
 }
 
 export interface CandidateNode {
@@ -19,6 +23,8 @@ export interface CandidateNode {
   lat: number;
   lng: number;
   places: RawPlace[]; // POIs that formed this node
+  /** Every swept POI within NEARBY_RADIUS_M of the node centre (superset of `places`); used for hours/price signals. */
+  nearby?: RawPlace[];
 }
 
 export interface FeatureVector {
@@ -62,9 +68,6 @@ export interface SuburbSelection {
   center: LatLng;
   viewport: Bounds;
 }
-
-/** One row of a vendor foot-traffic export. */
-export interface FootTrafficRecord { lat: number; lng: number; dailyVisits: number; peakHour?: number; }
 
 /** Flattened provenance row for UI + prompt. */
 export interface SourceRow { label: string; provenance: 'measured' | 'proxy' | 'unavailable'; note?: string; }

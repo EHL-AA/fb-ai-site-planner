@@ -2,8 +2,10 @@ import { computeFeatures, FeatureInputs } from './features';
 import { CandidateNode, FeatureVector, SourceRow } from './types';
 import { NodeSignals, clamp100, logScore } from './signals/types';
 
-const TRAFFIC_W = { footTraffic: 0.4, congestion: 0.2, density: 0.2, review: 0.2 };
-const DEMO_W = { affluence: 0.6, census: 0.4 };
+/** Traffic: busiest-slot congestion, lunch congestion, evening trade, Aggregate density, review density. */
+const TRAFFIC_W = { peak: 0.25, midday: 0.15, tradeHours: 0.15, density: 0.2, review: 0.25 };
+/** Demographics: Google price band, retail-anchor mix, census density. An uploaded LSM replaces both affluence parts. */
+const DEMO_W = { priceLevel: 0.4, retailMix: 0.2, lsm: 0.6, census: 0.4 };
 
 function weightedMean(parts: Array<[value: number, weight: number] | null>): number | null {
   const live = parts.filter((p): p is [number, number] => !!p);
@@ -12,25 +14,31 @@ function weightedMean(parts: Array<[value: number, weight: number] | null>): num
   return clamp100(live.reduce((s, [v, x]) => s + v * x, 0) / w);
 }
 
-export function blendTraffic(reviewScore: number, s: NodeSignals, footMax: number): number {
-  const foot = s.footTraffic.value ? logScore(s.footTraffic.value.dailyVisits, footMax) : null;
-  const cong = s.congestion.value ? s.congestion.value.index0to100 : null;
+export function blendTraffic(reviewScore: number, s: NodeSignals): number {
+  const peak = s.congestion.value ? s.congestion.value.index0to100 : null;
+  const midday = s.congestion.value?.slots.midday ?? null;
+  const trade = s.tradeHours.value ? (s.tradeHours.value.openLate0to100 + s.tradeHours.value.openSunday0to100) / 2 : null;
   const dens = s.density.value ? (s.density.value.daytimeIndex0to100 + s.density.value.eveningIndex0to100) / 2 : null;
   return weightedMean([
-    foot != null ? [foot, TRAFFIC_W.footTraffic] : null,
-    cong != null ? [cong, TRAFFIC_W.congestion] : null,
+    peak != null ? [peak, TRAFFIC_W.peak] : null,
+    midday != null ? [midday, TRAFFIC_W.midday] : null,
+    trade != null ? [trade, TRAFFIC_W.tradeHours] : null,
     dens != null ? [dens, TRAFFIC_W.density] : null,
     [reviewScore, TRAFFIC_W.review],
   ]) ?? reviewScore;
 }
 
 export function blendDemographics(base: FeatureVector['demographics'], s: NodeSignals, densityMax: number): number {
-  // Uploaded LSM (1-10) or income override the retail-mix affluence proxy.
+  // An uploaded LSM (1-10) replaces both Google-derived affluence parts.
   const lsmScore = base.lsm != null ? clamp100(base.lsm * 10) : null;
-  const affl = lsmScore ?? (s.affluence.value ? s.affluence.value.index0to100 : null);
+  const price = s.priceLevel.value ? s.priceLevel.value.index0to100 : null;
+  const mix = s.affluence.value ? s.affluence.value.index0to100 : null;
   const dens = s.census.value ? logScore(s.census.value.densityPerKm2, densityMax) : null;
+  const affluenceParts: Array<[number, number] | null> = lsmScore != null
+    ? [[lsmScore, DEMO_W.lsm]]
+    : [price != null ? [price, DEMO_W.priceLevel] : null, mix != null ? [mix, DEMO_W.retailMix] : null];
   return weightedMean([
-    affl != null ? [affl, DEMO_W.affluence] : null,
+    ...affluenceParts,
     dens != null ? [dens, DEMO_W.census] : null,
   ]) ?? base.affluenceProxy0to100;
 }
@@ -51,7 +59,7 @@ const REVIEW_DENSITY_ROW: SourceRow = {
 export function flattenSources(s: NodeSignals): SourceRow[] {
   return [
     REVIEW_DENSITY_ROW,
-    ...(['congestion', 'density', 'affluence', 'census', 'footTraffic'] as const).map(k => ({
+    ...(['congestion', 'tradeHours', 'priceLevel', 'density', 'affluence', 'census'] as const).map(k => ({
       label: s[k].source, provenance: s[k].provenance, note: s[k].note,
     })),
   ];
@@ -60,14 +68,13 @@ export function flattenSources(s: NodeSignals): SourceRow[] {
 /** computeFeatures + provenance-tagged signals → blended scores. */
 export function composeFeatures(nodes: CandidateNode[], signals: NodeSignals[], inputs: FeatureInputs, suburb?: string): FeatureVector[] {
   const base = computeFeatures(nodes, inputs, suburb);
-  const footMax = Math.max(0, ...signals.map(s => s.footTraffic.value?.dailyVisits ?? 0));
   const densityMax = Math.max(0, ...signals.map(s => s.census.value?.densityPerKm2 ?? 0));
   return base.map((f, i) => {
     const s = signals[i];
     const drive = s.congestion.value?.driveMinutesFromCentre ?? null;
     return {
       ...f,
-      trafficProxy: { ...f.trafficProxy, score0to100: blendTraffic(f.trafficProxy.score0to100, s, footMax) },
+      trafficProxy: { ...f.trafficProxy, score0to100: blendTraffic(f.trafficProxy.score0to100, s) },
       accessibility: { ...f.accessibility, score0to100: clamp100(f.accessibility.score0to100 + accessibilityBonus(drive)) },
       demographics: { ...f.demographics, affluenceProxy0to100: blendDemographics(f.demographics, s, densityMax) },
       signals: s,

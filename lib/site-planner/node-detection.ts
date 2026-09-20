@@ -1,4 +1,7 @@
-import { gridPoints, clusterPoints, Bounds, WeightedPoint, LatLng } from './geo';
+import { gridPoints, clusterPoints, haversineMeters, Bounds, WeightedPoint, LatLng } from './geo';
+
+/** Radius for the per-node `nearby` POI set used by hours/price signals. */
+export const NEARBY_RADIUS_M = 600;
 import { CandidateNode, RawPlace } from './types';
 import { PlaceRec } from './places-data';
 
@@ -25,6 +28,24 @@ export async function findBrandStores(
   }
 }
 
+const PRICE_BANDS: Record<string, 1 | 2 | 3 | 4> = { INEXPENSIVE: 1, MODERATE: 2, EXPENSIVE: 3, VERY_EXPENSIVE: 4 };
+/** Map Google's PriceLevel enum to a 1–4 band; FREE and unknown become undefined. */
+export function priceBand(level: unknown): 1 | 2 | 3 | 4 | undefined {
+  return typeof level === 'string' ? PRICE_BANDS[level] : undefined;
+}
+/** Flatten Google's OpeningHours periods into {openDay, openMinute, closeDay?, closeMinute?}. */
+export function openPeriods(hours: any): RawPlace['openPeriods'] {
+  const periods = hours?.periods;
+  if (!Array.isArray(periods) || !periods.length) return undefined;
+  return periods
+    .filter((p: any) => p?.open && Number.isFinite(p.open.day))
+    .map((p: any) => ({
+      openDay: p.open.day, openMinute: (p.open.hour ?? 0) * 60 + (p.open.minute ?? 0),
+      closeDay: p.close ? p.close.day : undefined,
+      closeMinute: p.close ? (p.close.hour ?? 0) * 60 + (p.close.minute ?? 0) : undefined,
+    }));
+}
+
 const SEARCH_TYPES = ['restaurant', 'shopping_mall', 'supermarket', 'cafe', 'store', 'transit_station'];
 
 export interface DetectOptions {
@@ -45,8 +66,10 @@ function isQuotaError(e: unknown): boolean {
 
 interface WeightedPlacePoint extends WeightedPoint { place: RawPlace; }
 
+export interface DetectResult { nodes: CandidateNode[]; /** Every de-duplicated POI the sweep returned. */ swept: RawPlace[]; }
+
 /** Sweep Places across the given viewport and cluster POIs into nodes. */
-export async function detectCommercialNodes(opts: DetectOptions): Promise<CandidateNode[]> {
+export async function detectCommercialNodes(opts: DetectOptions): Promise<DetectResult> {
   const { placesLib, viewport: bounds } = opts;
   const gridSize = opts.gridSize ?? 2;
   const searchRadiusM = opts.searchRadiusM ?? 1000;
@@ -62,7 +85,7 @@ export async function detectCommercialNodes(opts: DetectOptions): Promise<Candid
         locationRestriction: { center: { lat: pt.lat, lng: pt.lng }, radius: searchRadiusM },
         includedTypes: SEARCH_TYPES,
         maxResultCount: 20,
-        fields: ['location', 'displayName', 'rating', 'userRatingCount', 'types', 'primaryType'],
+        fields: ['location', 'displayName', 'rating', 'userRatingCount', 'types', 'primaryType', 'priceLevel', 'regularOpeningHours'],
       }));
     } catch (e) {
       // Tolerate a single failed search; only abort if every call fails (below).
@@ -82,6 +105,8 @@ export async function detectCommercialNodes(opts: DetectOptions): Promise<Candid
         types: p.types ?? [],
         primaryType: p.primaryType ?? undefined,
         displayName: p.displayName ?? undefined,
+        priceLevel: priceBand(p.priceLevel),
+        openPeriods: openPeriods(p.regularOpeningHours),
       });
     }
   }
@@ -97,7 +122,7 @@ export async function detectCommercialNodes(opts: DetectOptions): Promise<Candid
   }));
 
   const clusters = clusterPoints(weighted, clusterRadiusM)
-    .map((c, i) => ({
+    .map((c, i): CandidateNode => ({
       id: `node-${i + 1}`,
       label: '',
       lat: c.lat,
@@ -110,10 +135,16 @@ export async function detectCommercialNodes(opts: DetectOptions): Promise<Candid
     )
     .slice(0, maxNodes);
 
+  // Attach every swept POI within NEARBY_RADIUS_M so thin clusters still get a usable hours/price sample.
+  const all = [...seen.values()];
+  for (const node of clusters) {
+    node.nearby = all.filter(p => haversineMeters(node.lat, node.lng, p.lat, p.lng) <= NEARBY_RADIUS_M);
+  }
+
   // Label each node by its highest-reviewed POI for human readability.
   for (const node of clusters) {
     const top = [...node.places].sort((a, b) => (b.userRatingCount ?? 0) - (a.userRatingCount ?? 0))[0];
     node.label = top?.displayName ? `Near ${top.displayName}` : `${node.lat.toFixed(3)}, ${node.lng.toFixed(3)}`;
   }
-  return clusters;
+  return { nodes: clusters, swept: all };
 }

@@ -4,7 +4,7 @@ import { CallBudget, SignalContext, SignalSource, measured } from './types';
 
 const ctx: SignalContext = {
   selection: { placeId: 'p', suburb: 'S', city: 'C', center: { lat: -26.1, lng: 28.05 }, viewport: { north: 0, south: 0, east: 0, west: 0 } },
-  mapsApiKey: '', fetchImpl: fetch, budget: new CallBudget(), now: new Date(), retail: [], footTrafficRows: [],
+  mapsApiKey: '', fetchImpl: fetch, budget: new CallBudget(), now: new Date(), retail: [], swept: [],
 };
 const nodes = [{ id: 'a', label: 'a', lat: -26.1, lng: 28.05, places: [] }, { id: 'b', label: 'b', lat: -26.2, lng: 28.1, places: [] }];
 

@@ -1,5 +1,5 @@
 import Papa from 'papaparse';
-import { CompetitorRecord, StoreRecord, DemographicRecord, FootTrafficRecord } from './types';
+import { CompetitorRecord, StoreRecord, DemographicRecord } from './types';
 
 export interface ParseResult<T> { records: (T & { address?: string })[]; errors: string[]; }
 
@@ -19,8 +19,6 @@ const ALIASES: Record<string, string[]> = {
   lsm: ['lsm', 'living_standard'],
   households: ['households', 'hh'],
   density: ['density', 'pop_density'],
-  daily_visits: ['daily_visits', 'visits', 'dailyvisits', 'footfall', 'visitors'],
-  peak_hour: ['peak_hour', 'peakhour', 'peak'],
 };
 
 /** Build a map of canonical-field -> actual header present in the file. */
@@ -102,27 +100,6 @@ export function parseStores(csv: string): ParseResult<StoreRecord> {
       rowError,
     };
   });
-}
-
-/**
- * Unlike the other parsers, a bad row here is dropped from `records` rather than
- * kept with placeholder values — a foot-traffic row with no usable visits count
- * (or coordinates) carries no signal, so it is only useful as an error to surface.
- */
-export function parseFootTraffic(csv: string): ParseResult<FootTrafficRecord> {
-  const parsed = Papa.parse<Record<string, string>>(csv, { header: true, skipEmptyLines: true });
-  const map = resolveHeaders(parsed.meta.fields ?? []);
-  const records: (FootTrafficRecord & { address?: string })[] = [];
-  const errors: string[] = [];
-  parsed.data.forEach((row, i) => {
-    const { lat, lng, rowError: coordError } = coords(row, map);
-    if (coordError) { errors.push(`row ${i + 1}: ${coordError}`); return; }
-    const dailyVisits = num(row[map.daily_visits]);
-    if (!Number.isFinite(dailyVisits)) { errors.push(`row ${i + 1}: daily_visits is not a number`); return; }
-    const peakHour = map.peak_hour ? numOrUndef(row[map.peak_hour]) : undefined;
-    records.push({ lat, lng, dailyVisits, peakHour });
-  });
-  return { records, errors };
 }
 
 export function parseDemographics(csv: string): ParseResult<DemographicRecord> {
