@@ -120,7 +120,7 @@ source returns one entry per node in the same order.
 |---|---|---|---|---|
 | `reviewDensity` | Existing Places sweep | `poiCount`, `totalReviews`, `anchorTypes`, `transitStopsNearby` | proxy | 0 (reuses detection data) |
 | `routesTraffic` | Routes API `computeRoutes` | `congestionIndex0to100` (mean of live/static ratio on 4 × 1.5 km legs N/E/S/W at fixed weekday 17:30 SAST departure), `driveMinutesFromCentre` | measured | 5 |
-| `placesDensity` | Places Aggregate `computeInsights` | counts within 500 m and 1 km for: `office`, `school`, `university`, `gym`, `grocery_or_supermarket`, `bar`, `restaurant`, `cafe`; derived `daytimeIndex0to100` (offices+schools+universities), `eveningIndex0to100` (bars+restaurants+cafes) | measured (counts) / proxy (indices) | 8 |
+| `placesDensity` | Places Aggregate `computeInsights` | counts within 1 km for: `corporate_office`, `school`, `university`, `gym`, `supermarket`, `bar`, `restaurant`, `cafe`; derived `daytimeIndex0to100` (offices+schools+universities), `eveningIndex0to100` (bars+restaurants+cafes), log-scaled against the busiest node | measured (counts) / proxy (indices) | 8 |
 | `retailMix` | Bundled `retail.json` | within 2 km: `premiumAnchors` (Woolworths, Checkers), `valueAnchors` (Boxer, Usave, Shoprite), `affluenceIndex0to100 = premium / (premium+value)` scaled, `unavailable` if < 2 anchors | proxy | 0 |
 | `census` | Bundled Stats SA ward CSV | nearest ward: `population`, `households`, `densityPerKm2` | measured | 0 |
 | `footTraffic` | Adapter (see 3.3) | `dailyVisits`, `peakHour` | measured or unavailable | 0 (CSV) |
@@ -179,28 +179,32 @@ added by implementing the interface only.
 
 ### 3.5 Extended feature vector
 
+The existing `FeatureVector` keeps every current field (so `display.ts`,
+`DetailCard`, and the feature tests keep working). Two optional fields are
+added, and the three existing scores become blended values:
+
 ```ts
 export interface FeatureVector {
-  id: string; label: string; lat: number; lng: number;
-  traffic: {
-    reviewDensity: Signal<{ poiCount: number; totalReviews: number; anchorTypes: string[] }>;
-    congestion: Signal<{ index0to100: number; driveMinutesFromCentre: number }>;
-    density: Signal<{ daytimeIndex0to100: number; eveningIndex0to100: number; counts: Record<string, number> }>;
-    footTraffic: Signal<{ dailyVisits: number; peakHour?: number } | null>;
-    score0to100: number;               // blended (see 3.6)
-  };
-  accessibility: { transitStopsNearby: number; majorRoadAdjacent: boolean; driveMinutesFromCentre: number | null; score0to100: number };
-  competition: { competitorsWithin1km: number; nearestCompetitorM: number | null };
-  cannibalisation: { ownStoresWithin2km: number; nearestOwnStoreM: number | null };
-  demographics: {
-    census: Signal<{ population: number; households: number; densityPerKm2: number } | null>;
-    affluence: Signal<{ index0to100: number; premiumAnchors: number; valueAnchors: number } | null>;
-    csv?: { population?: number; income?: number; lsm?: number };   // uploaded, if any
-    score0to100: number;
-  };
-  sources: Array<{ label: string; provenance: Provenance; note?: string }>;  // flattened for UI + prompt
+  // ...existing fields unchanged: trafficProxy, accessibility, competition, cannibalisation, demographics
+  /** Provenance-tagged signals from lib/site-planner/signals (absent on legacy paths). */
+  signals?: NodeSignals;
+  /** Flattened source list for UI + prompt. */
+  sources?: SourceRow[];   // { label, provenance, note? }
+}
+
+export interface NodeSignals {
+  congestion:  Signal<{ index0to100: number; driveMinutesFromCentre: number | null } | null>;
+  density:     Signal<{ daytimeIndex0to100: number; eveningIndex0to100: number; counts: Record<string, number> } | null>;
+  affluence:   Signal<{ index0to100: number; premiumAnchors: number; valueAnchors: number } | null>;
+  census:      Signal<{ ward: string; population: number; households: number; densityPerKm2: number } | null>;
+  footTraffic: Signal<{ dailyVisits: number; peakHour?: number } | null>;
 }
 ```
+
+`trafficProxy.score0to100`, `demographics.affluenceProxy0to100` and
+`accessibility.score0to100` are overwritten with the blended values from 3.6.
+The `reviewDensity` signal is the existing `trafficProxy` data and is always a
+`proxy`.
 
 ### 3.6 Scoring blend (pure, unit-tested)
 
