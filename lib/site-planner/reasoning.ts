@@ -45,7 +45,11 @@ competitor count, cannibalisation against existing Famous Brands stores, and dem
 Score each site 0-100 as a weighted composite using the provided weights, rank them best-first,
 and explain each ranking in plain business language. Penalise high cannibalisation and excessive
 direct competition. Reward high traffic, good accessibility, and target-customer demographic fit.
-Be specific about why a site wins or loses. Never invent data not present in the candidate.`;
+Be specific about why a site wins or loses. Never invent data not present in the candidate.
+
+Each candidate carries a "sources" list. Signals marked "proxy" are indirect estimates; signals marked
+"unavailable" were not collected for this run. Never treat a proxy as measured foot traffic. When a
+ranking rests mainly on proxies, say so plainly in the rationale and in overallSummary.`;
 
 export interface PromptInput {
   brand: string;
@@ -55,12 +59,21 @@ export interface PromptInput {
   constraints?: string;
 }
 
+export function provenanceBlock(features: FeatureVector[]): string {
+  const seen = new Map<string, { provenance: string; note?: string }>();
+  for (const f of features) for (const s of f.sources ?? []) if (!seen.has(s.label)) seen.set(s.label, s);
+  if (!seen.size) return '';
+  const lines = [...seen.entries()].map(([label, s]) => `- ${label}: ${s.provenance}${s.note ? ` — ${s.note}` : ''}`);
+  return ['Data provenance (applies to every candidate):', ...lines].join('\n');
+}
+
 export function buildPrompt({ brand, suburb, features, weights, constraints }: PromptInput): string {
   return [
     `Brand to place: ${brand}`,
     `Suburb under analysis: ${suburb}`,
     `Scoring weights (sum 1.0): traffic=${weights.traffic}, demographics=${weights.demographics}, competition=${weights.competition}, accessibility=${weights.accessibility}`,
     constraints ? `Additional user constraints: ${constraints}` : '',
+    provenanceBlock(features),
     `Candidate sites (JSON):`,
     JSON.stringify(features, null, 2),
     `Return the ranked result strictly as JSON matching the schema. Include every candidate id exactly once.`,

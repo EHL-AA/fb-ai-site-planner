@@ -54,3 +54,17 @@ describe('validateRankedResult', () => {
     expect(() => validateRankedResult({ overallSummary: 'x', ranked: [{ rank: 1 }] })).toThrow();
   });
 });
+
+describe('buildPrompt provenance', () => {
+  it('lists each data source with its provenance and omits the block when absent', () => {
+    const withSources = { ...fv, sources: [
+      { label: 'Google Routes API (live traffic)', provenance: 'measured' as const, note: 'peak' },
+      { label: 'Foot traffic (no feed connected)', provenance: 'unavailable' as const, note: 'none' },
+    ] };
+    const p = buildPrompt({ brand: 'Steers', suburb: 'Rosebank', features: [withSources], weights: DEFAULT_WEIGHTS });
+    expect(p).toContain('Data provenance');
+    expect(p).toContain('- Google Routes API (live traffic): measured — peak');
+    expect(p).toContain('- Foot traffic (no feed connected): unavailable — none');
+    expect(buildPrompt({ brand: 'Steers', suburb: 'Rosebank', features: [fv], weights: DEFAULT_WEIGHTS })).not.toContain('Data provenance');
+  });
+});
