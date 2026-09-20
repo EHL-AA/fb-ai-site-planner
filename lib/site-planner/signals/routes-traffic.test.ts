@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { legEndpoints, nextWeekdayPeakIso, congestionIndex, routesTrafficSource } from './routes-traffic';
 import { CallBudget, SignalContext } from './types';
 import { haversineMeters } from '../geo';
@@ -57,5 +57,12 @@ describe('routesTrafficSource', () => {
   it('becomes unavailable when the budget is exhausted', async () => {
     const [sig] = await routesTrafficSource.enrich([node], ctxWith(async () => { throw new Error('no'); }, 0));
     expect(sig.provenance).toBe('unavailable');
+  });
+  it('becomes unavailable when fetchImpl throws with default budget', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const [sig] = await routesTrafficSource.enrich([node], ctxWith(async () => { throw new Error('network down'); }));
+    expect(sig.provenance).toBe('unavailable');
+    expect(sig.value).toBeNull();
+    warnSpy.mockRestore();
   });
 });
