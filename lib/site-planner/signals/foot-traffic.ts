@@ -54,7 +54,7 @@ export function footTrafficSourceFor(provider: FootTrafficProvider): SignalSourc
 export const footTrafficSource: SignalSource<'footTraffic'> = {
   id: 'footTraffic',
   label: 'Foot traffic',
-  enrich(nodes, ctx) {
+  async enrich(nodes, ctx) {
     const provider = ctx.footTrafficRows.length ? csvFootTrafficProvider : nullFootTrafficProvider;
     return footTrafficSourceFor(provider).enrich(nodes, ctx);
   },

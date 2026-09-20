@@ -22,7 +22,7 @@ export async function gatherSignals(
   sources: SignalSource<keyof NodeSignals>[] = ALL_SOURCES,
 ): Promise<NodeSignals[]> {
   const perKey = new Map<keyof NodeSignals, unknown[]>();
-  const settled = await Promise.allSettled(sources.map(s => s.enrich(nodes, ctx)));
+  const settled = await Promise.allSettled(sources.map(s => Promise.resolve().then(() => s.enrich(nodes, ctx))));
   settled.forEach((r, i) => {
     const src = sources[i];
     if (r.status === 'fulfilled' && r.value.length === nodes.length) perKey.set(src.id, r.value);

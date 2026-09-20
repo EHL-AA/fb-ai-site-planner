@@ -91,6 +91,25 @@ describe('placesDensitySource', () => {
     expect(sigs[1].provenance).toBe('unavailable');
     expect(budget.used).toBe(1);
   });
+  it('keeps all 8 type counts on node 0 when only the probe call fails non-fatally', async () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      let calls = 0;
+      const fetchImpl = async () => {
+        calls++;
+        if (calls === 1) return { ok: false, status: 500 } as any;
+        return { ok: true, json: async () => ({ count: '3' }) } as any;
+      };
+      const budget = new CallBudget();
+      const ctx = { ...ctxWith(fetchImpl), budget };
+      const [sig] = await placesDensitySource.enrich([node('a')], ctx);
+      expect(sig.provenance).toBe('measured');
+      expect(Object.keys(sig.value!.counts).sort()).toEqual([...DENSITY_TYPES].sort());
+      expect(budget.used).toBe(9);
+    } finally {
+      spy.mockRestore();
+    }
+  });
   it('silences console.warn on countPlaces errors', async () => {
     const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     try {

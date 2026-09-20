@@ -18,4 +18,16 @@ describe('gatherSignals', () => {
     expect(out[0].congestion.provenance).toBe('unavailable');
     expect(out[1].census.provenance).toBe('unavailable'); // source not supplied → unavailable
   });
+
+  it('converts a synchronous throw from a source to unavailable for every node', async () => {
+    const sync: SignalSource<'affluence'> = {
+      id: 'affluence',
+      label: 'Sync',
+      enrich: (() => { throw new Error('sync'); }) as any,
+    };
+    const out = await gatherSignals(nodes, ctx, [sync]);
+    expect(out).toHaveLength(2);
+    expect(out[0].affluence.provenance).toBe('unavailable');
+    expect(out[1].affluence.provenance).toBe('unavailable');
+  });
 });

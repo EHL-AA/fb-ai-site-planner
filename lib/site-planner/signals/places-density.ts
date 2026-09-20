@@ -26,7 +26,8 @@ export async function countPlaces(ctx: SignalContext, center: LatLng, type: stri
   const json: any = await res.json().catch(() => ({}));
   if (!res.ok) {
     const reason = json?.error?.details?.find((d: any) => d?.reason)?.reason;
-    return reason === 'SERVICE_DISABLED' ? 'disabled' : null;
+    if (reason === 'SERVICE_DISABLED' || res.status === 401 || res.status === 403) return 'disabled';
+    return null;
   }
   const n = Number(json?.count ?? 0);
   return Number.isFinite(n) ? n : null;
@@ -59,7 +60,7 @@ export const placesDensitySource: SignalSource<'density'> = {
       console.warn('probe call failed', e);
     }
     if (probeResult === 'disabled') {
-      const note = 'Enable Places Aggregate API on the Maps project (Cloud console → APIs) to collect density counts.';
+      const note = 'Enable Places Aggregate API on the Maps project and allow it on the API key (Cloud console → APIs & Services) to collect density counts.';
       return nodes.map(() => unavailable<DensitySignal>(DENSITY_SOURCE_LABEL, note));
     }
 
@@ -75,8 +76,8 @@ export const placesDensitySource: SignalSource<'density'> = {
       }
 
       await Promise.all(DENSITY_TYPES.map(async (t, typeIdx) => {
-        // Skip first type of first node since we already probed it
-        if (nodeIdx === 0 && typeIdx === 0) return;
+        // Skip first type of first node only when the probe already filled it in
+        if (nodeIdx === 0 && typeIdx === 0 && probeResult !== null) return;
 
         try {
           const n = await countPlaces(ctx, { lat: node.lat, lng: node.lng }, t);
@@ -89,7 +90,7 @@ export const placesDensitySource: SignalSource<'density'> = {
 
     if (disabled || counts.every(c => c === null)) {
       const note = disabled
-        ? 'Enable Places Aggregate API on the Maps project (Cloud console → APIs) to collect density counts.'
+        ? 'Enable Places Aggregate API on the Maps project and allow it on the API key (Cloud console → APIs & Services) to collect density counts.'
         : 'Places Aggregate API returned no counts.';
       return nodes.map(() => unavailable<DensitySignal>(DENSITY_SOURCE_LABEL, note));
     }
