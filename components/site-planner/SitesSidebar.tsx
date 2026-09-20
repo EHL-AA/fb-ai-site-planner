@@ -86,7 +86,7 @@ export default function SitesSidebar() {
 
   const [selection, setSelection] = useState<SuburbSelection | null>(null);
   const [filters, setFilters] = useState({ aplus: false, lowCannibal: false, lowComp: false });
-  const busy = status === 'detecting' || status === 'reasoning';
+  const busy = status === 'detecting' || status === 'enriching' || status === 'reasoning';
 
   const sites = useMemo(() => toDisplaySites(features, result, storeSuburb), [features, result, storeSuburb]);
   const filtered = useMemo(() => sites.filter(s => {
@@ -172,7 +172,7 @@ export default function SitesSidebar() {
         {busy && sites.length === 0 && (
           <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--ink-3)', fontSize: 13, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
             <span style={{ width: 26, height: 26, border: '3px solid var(--bg-3)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'fp-spin .8s linear infinite' }} />
-            {status === 'detecting' ? 'Scanning Google Places…' : `${REASONING_MODEL_LABEL} is ranking sites…`}
+            {status === 'detecting' ? 'Scanning Google Places…' : status === 'enriching' ? 'Gathering traffic, density and demographic signals…' : `${REASONING_MODEL_LABEL} is ranking sites…`}
           </div>
         )}
         {status === 'error' && (

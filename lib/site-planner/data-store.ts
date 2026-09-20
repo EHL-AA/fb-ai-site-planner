@@ -7,7 +7,7 @@ import {
   SuburbSelection,
 } from './types';
 
-export type AnalysisStatus = 'idle' | 'detecting' | 'reasoning' | 'done' | 'error';
+export type AnalysisStatus = 'idle' | 'detecting' | 'enriching' | 'reasoning' | 'done' | 'error';
 export interface ChatMessage { role: 'user' | 'agent'; text: string; }
 export interface DataLayers { existing: boolean; competitors: boolean; retail: boolean; }
 export interface QueryLayer { label: string; points: PlaceRec[]; }
@@ -33,6 +33,7 @@ interface PlannerState {
   errorMessage: string | null;
   selectedSiteId: string | null;
   chat: ChatMessage[];
+  apiCalls: number;
 
   // Bundled Famous Brands datasets + map layers
   competitorsData: PlaceRec[];
@@ -54,6 +55,7 @@ interface PlannerState {
   setFeatures: (f: FeatureVector[]) => void;
   setResult: (r: RankedResult | null) => void;
   setStatus: (s: AnalysisStatus) => void;
+  setApiCalls: (n: number) => void;
   setError: (m: string | null) => void;
   selectSite: (id: string | null) => void;
   addChat: (m: ChatMessage) => void;
@@ -83,6 +85,7 @@ export const usePlannerStore = create<PlannerState>(set => ({
   errorMessage: null,
   selectedSiteId: null,
   chat: [],
+  apiCalls: 0,
   competitorsData: [],
   retailData: [],
   existingStores: [],
@@ -102,6 +105,7 @@ export const usePlannerStore = create<PlannerState>(set => ({
   setFeatures: features => set({ features }),
   setResult: result => set({ result }),
   setStatus: status => set({ status }),
+  setApiCalls: apiCalls => set({ apiCalls }),
   setError: errorMessage => set({ errorMessage }),
   selectSite: selectedSiteId => set({ selectedSiteId }),
   addChat: m => set(s => ({ chat: [...s.chat, m] })),
@@ -112,7 +116,7 @@ export const usePlannerStore = create<PlannerState>(set => ({
   setViewCenter: viewCenter => set({ viewCenter }),
   reset: () => {
     useMapStore.getState().setMarkers([]);
-    set({ candidates: [], features: [], result: null, status: 'idle', errorMessage: null, selectedSiteId: null, chat: [], uploadErrors: [], queryLayer: null });
+    set({ candidates: [], features: [], result: null, status: 'idle', errorMessage: null, selectedSiteId: null, chat: [], uploadErrors: [], queryLayer: null, apiCalls: 0 });
   },
 }));
 

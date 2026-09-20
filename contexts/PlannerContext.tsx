@@ -1,9 +1,10 @@
 import React, { createContext, FC, ReactNode, useContext, useCallback } from 'react';
 import { detectCommercialNodes, findBrandStores } from '@/lib/site-planner/node-detection';
-import { computeFeatures } from '@/lib/site-planner/features';
 import { analyzeSuburb, rerank } from '@/lib/site-planner/reasoning';
 import { queryPlaces } from '@/lib/site-planner/places-data';
 import { usePlannerStore } from '@/lib/site-planner/data-store';
+import { gatherSignals, CallBudget } from '@/lib/site-planner/signals';
+import { composeFeatures } from '@/lib/site-planner/compose-features';
 import { useMapStore, MapMarker } from '@/lib/state';
 import { FeatureVector, RankedResult, CompetitorRecord, StoreRecord, SuburbSelection } from '@/lib/site-planner/types';
 
@@ -65,7 +66,14 @@ export const PlannerProvider: FC<{
         ...existingStores.map(p => ({ name: p.n, lat: p.lat, lng: p.lng })),
       ];
 
-      const features = computeFeatures(nodes, { competitors, stores, demographics: s.demographics }, suburb);
+      s.setStatus('enriching');
+      const budget = new CallBudget();
+      const signals = await gatherSignals(nodes, {
+        selection, mapsApiKey, fetchImpl: fetch.bind(window), budget, now: new Date(),
+        retail: s.retailData, footTrafficRows: s.footTraffic,
+      });
+      s.setApiCalls(budget.used);
+      const features = composeFeatures(nodes, signals, { competitors, stores, demographics: s.demographics }, suburb);
       s.setFeatures(features);
       useMapStore.getState().setMarkers(markersFor(features));
 
@@ -78,7 +86,7 @@ export const PlannerProvider: FC<{
       s.setError(e?.message ?? 'Analysis failed.');
       s.setStatus('error');
     }
-  }, [placesLib]);
+  }, [placesLib, mapsApiKey]);
 
   const doRerank = useCallback(async (message: string) => {
     const s = usePlannerStore.getState();
