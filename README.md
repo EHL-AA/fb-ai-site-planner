@@ -12,7 +12,7 @@ applicable to your region before using it in production.
 
 1. Copy `.env.example` to `.env` and fill in:
    - `GEMINI_API_KEY` — from [Google AI Studio](https://aistudio.google.com/apikey), used for Gemini 3.8 Flash ranking.
-   - `MAPS_API_KEY` — your own Google Maps Platform key, with **billing enabled**, from a project with these APIs enabled: Maps JavaScript API, Places API (New), Geocoding API, Routes API, Places Aggregate API, and Map Tiles API (for photorealistic 3D).
+   - `MAPS_API_KEY` — your own Google Maps Platform key, with **billing enabled**, from a project with these APIs enabled: Maps JavaScript API, Places API (New), Geocoding API, Routes API, Places Aggregate API, and Map Tiles API (for photorealistic 3D). If the key has API restrictions, the same APIs must be allowed on the key itself, otherwise the Routes and density signals show as unavailable.
    - `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`, `FIREBASE_PROJECT_ID`, `FIREBASE_STORAGE_BUCKET`, `FIREBASE_MESSAGING_SENDER_ID`, `FIREBASE_APP_ID` — from your Firebase project's web app config, used for the sign-in screen.
 2. Install and run:
 

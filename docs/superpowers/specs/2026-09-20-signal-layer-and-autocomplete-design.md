@@ -121,12 +121,17 @@ source id. Each source returns one entry per node in the same order.
 
 | id | Source | Signal(s) per node | Provenance | API calls / node |
 |---|---|---|---|---|
-| `reviewDensity` | Existing Places sweep | `poiCount`, `totalReviews`, `anchorTypes`, `transitStopsNearby` | proxy | 0 (reuses detection data) |
+| (base score) | Existing Places sweep — folded into `trafficProxy`, not a `NodeSignals` key; listed as a `proxy` row in `sources` | `poiCount`, `totalReviews`, `anchorTypes`, `transitStopsNearby` | proxy | 0 (reuses detection data) |
 | `routesTraffic` | Routes API `computeRoutes` | `congestionIndex0to100` (mean of live/static ratio on 4 × 1.5 km legs N/E/S/W at fixed weekday 17:30 SAST departure), `driveMinutesFromCentre` | measured | 5 |
 | `placesDensity` | Places Aggregate `computeInsights` | counts within 1 km for: `corporate_office`, `school`, `university`, `gym`, `supermarket`, `bar`, `restaurant`, `cafe`; derived `daytimeIndex0to100` (offices+schools+universities), `eveningIndex0to100` (bars+restaurants+cafes), log-scaled against the busiest node | measured (counts) / proxy (indices) | 8 |
 | `retailMix` | Bundled `retail.json` | within 2 km: `premiumAnchors` (Woolworths, Checkers), `valueAnchors` (Boxer, Usave, Shoprite), `affluenceIndex0to100 = premium / (premium+value)` scaled, `unavailable` if < 2 anchors | proxy | 0 |
 | `census` | Bundled Stats SA ward CSV | nearest ward: `population`, `households`, `densityPerKm2` | measured | 0 |
 | `footTraffic` | Adapter (see 3.3) | `dailyVisits`, `peakHour` | measured or unavailable | 0 (CSV) |
+
+Spar and Pick n Pay are deliberately unclassified: they straddle the
+premium/value line in South Africa. This excludes roughly half of bundled
+anchors and makes the `< 2 anchors → unavailable` threshold fire more often;
+revisit if a better income proxy becomes available.
 
 Per-node API calls ≈ 13; 8 nodes ≈ 104 calls per run. Both Routes and Aggregate
 free tiers cover this comfortably. `CallBudget` counts calls and the UI shows
@@ -225,8 +230,8 @@ Traffic score = weighted mean over **available** signals, weights renormalised:
 | reviewDensity (existing log score) | 0.20 |
 
 Demographics score = renormalised mean of `affluence.index` (0.6) and
-census `densityPerKm2` log-scaled vs max (0.4). Uploaded CSV `lsm`/`income`
-override affluence when present.
+census `densityPerKm2` log-scaled vs max (0.4). Uploaded CSV `lsm`
+overrides affluence when present (income override deferred).
 
 Accessibility score = existing formula + up to 20 points for
 `driveMinutesFromCentre ≤ 5`, linearly to 0 at 15 min.
