@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildPrompt, validateRankedResult, REASONING_MODEL } from './reasoning';
+import { buildPrompt, validateRankedResult, REASONING_MODEL, isInvalidKeyError } from './reasoning';
 import { FeatureVector, DEFAULT_WEIGHTS } from './types';
 
 const fv: FeatureVector = {
@@ -12,8 +12,19 @@ const fv: FeatureVector = {
 };
 
 describe('REASONING_MODEL', () => {
-  it('is the Pro reasoning model the spec requires', () => {
-    expect(REASONING_MODEL).toBe('gemini-2.5-pro');
+  it('is the current Gemini 3.8 Flash reasoning model', () => {
+    expect(REASONING_MODEL).toBe('gemini-3.8-flash');
+  });
+});
+
+describe('isInvalidKeyError', () => {
+  it('recognises the Gemini API_KEY_INVALID error payload', () => {
+    expect(isInvalidKeyError(new Error('API key not valid. Please pass a valid API key.'))).toBe(true);
+    expect(isInvalidKeyError(new Error('{"error":{"status":"INVALID_ARGUMENT","details":[{"reason":"API_KEY_INVALID"}]}}'))).toBe(true);
+  });
+  it('ignores unrelated errors so they still get retried', () => {
+    expect(isInvalidKeyError(new Error('RESOURCE_EXHAUSTED'))).toBe(false);
+    expect(isInvalidKeyError(new Error('network down'))).toBe(false);
   });
 });
 

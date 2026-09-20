@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { REASONING_MODEL_LABEL } from '@/lib/site-planner/reasoning';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import Icon from './Icon';
@@ -64,7 +65,7 @@ export default function AssistantPanel() {
           <div>
             <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
               Planner AI
-              <span style={{ fontSize: 10, color: 'var(--good)', background: 'rgba(109,213,140,0.10)', border: '1px solid rgba(109,213,140,0.3)', borderRadius: 999, padding: '1px 6px' }}>● Gemini 2.5 Pro</span>
+              <span style={{ fontSize: 10, color: 'var(--good)', background: 'rgba(109,213,140,0.10)', border: '1px solid rgba(109,213,140,0.3)', borderRadius: 999, padding: '1px 6px' }}>● {REASONING_MODEL_LABEL}</span>
             </div>
             <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: -1 }}>
               {brand}{suburb ? ` · ${suburb}` : ''}{ready ? ` · ${features.length} sites` : ''}

@@ -1,8 +1,10 @@
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, ThinkingLevel } from '@google/genai';
 import { FeatureVector, RankedResult, ScoringWeights } from './types';
 
 const API_KEY = process.env.API_KEY as string;
-export const REASONING_MODEL = 'gemini-2.5-pro';
+export const REASONING_MODEL = 'gemini-3.8-flash';
+/** Human-readable model name for UI badges/status text. */
+export const REASONING_MODEL_LABEL = 'Gemini 3.8 Flash';
 
 const RESPONSE_SCHEMA = {
   type: 'OBJECT',
@@ -80,6 +82,12 @@ export function validateRankedResult(data: any): RankedResult {
   return data as RankedResult;
 }
 
+/** True when the Gemini API rejected the key itself (as opposed to quota, network, etc.). */
+export function isInvalidKeyError(e: unknown): boolean {
+  const msg = e instanceof Error ? e.message : String(e ?? '');
+  return /API_KEY_INVALID|API key not valid/i.test(msg);
+}
+
 async function callPro(prompt: string): Promise<RankedResult> {
   if (!API_KEY) throw new Error('Missing required environment variable: API_KEY');
   const ai = new GoogleGenAI({ apiKey: API_KEY });
@@ -93,16 +101,23 @@ async function callPro(prompt: string): Promise<RankedResult> {
           systemInstruction: SYSTEM,
           responseMimeType: 'application/json',
           responseSchema: RESPONSE_SCHEMA as any,
-          thinkingConfig: { thinkingBudget: -1 }, // -1 = dynamic ("thinking on")
+          // Gemini 3 models use thinkingLevel (2.5 used thinkingBudget). HIGH = deepest reasoning.
+          thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH },
         },
       });
       if (!res.text) throw new Error('Empty response from the reasoning model.');
       return validateRankedResult(JSON.parse(res.text));
     } catch (e) {
       lastErr = e;
+      // An invalid key will never succeed on retry; surface the actionable fix instead.
+      if (isInvalidKeyError(e)) {
+        throw new Error(
+          'Gemini API key rejected (API_KEY_INVALID). Create a key at https://aistudio.google.com/apikey, set GEMINI_API_KEY in .env, then restart the dev server / rebuild.',
+        );
+      }
     }
   }
-  throw lastErr instanceof Error ? lastErr : new Error('Pro reasoning failed');
+  throw lastErr instanceof Error ? lastErr : new Error('Reasoning model call failed');
 }
 
 /** First-pass ranking of detected candidates. */

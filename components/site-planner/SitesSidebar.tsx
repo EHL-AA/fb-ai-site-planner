@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { REASONING_MODEL_LABEL } from '@/lib/site-planner/reasoning';
 import Icon from './Icon';
 import { usePlanner } from '@/contexts/PlannerContext';
 import { usePlannerStore } from '@/lib/site-planner/data-store';
@@ -179,7 +180,7 @@ export default function SitesSidebar() {
         {busy && sites.length === 0 && (
           <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--ink-3)', fontSize: 13, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
             <span style={{ width: 26, height: 26, border: '3px solid var(--bg-3)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'fp-spin .8s linear infinite' }} />
-            {status === 'detecting' ? 'Scanning Google Places…' : 'Gemini 2.5 Pro is ranking sites…'}
+            {status === 'detecting' ? 'Scanning Google Places…' : `${REASONING_MODEL_LABEL} is ranking sites…`}
           </div>
         )}
         {status === 'error' && (
