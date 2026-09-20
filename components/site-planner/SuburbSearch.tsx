@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import Icon from './Icon';
 import { usePlanner } from '@/contexts/PlannerContext';
 import { fetchSuburbSuggestions, newSessionToken, resolveSuburb, SuburbSuggestion } from '@/lib/site-planner/suburb-autocomplete';
@@ -77,7 +77,7 @@ export default function SuburbSearch({ disabled, value, onSelect }: Props) {
     else if (e.key === 'Escape') { setOpen(false); }
   };
 
-  const listId = useMemo(() => `suburb-list-${Math.random().toString(36).slice(2, 8)}`, []);
+  const listId = useId();
 
   return (
     <div style={{ position: 'relative' }}>

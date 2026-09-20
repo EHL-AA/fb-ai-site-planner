@@ -40,6 +40,7 @@ export const PlannerProvider: FC<{
     s.setSelection(selection);
     s.setError(null);
     s.setStatus('detecting');
+    s.setApiCalls(0);
     try {
       const { center, viewport, suburb } = selection;
       s.setViewCenter(center);

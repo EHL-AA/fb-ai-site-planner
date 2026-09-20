@@ -3,7 +3,7 @@ import { REASONING_MODEL_LABEL } from '@/lib/site-planner/reasoning';
 import Icon from './Icon';
 import SuburbSearch from './SuburbSearch';
 import { usePlanner } from '@/contexts/PlannerContext';
-import { usePlannerStore } from '@/lib/site-planner/data-store';
+import { usePlannerStore, isAnalysisBusy } from '@/lib/site-planner/data-store';
 import { useMapStore, useUI } from '@/lib/state';
 import { BRANDS, brandByName, tierColor, toDisplaySites, DisplaySite } from '@/lib/site-planner/display';
 import { SuburbSelection } from '@/lib/site-planner/types';
@@ -86,7 +86,7 @@ export default function SitesSidebar() {
 
   const [selection, setSelection] = useState<SuburbSelection | null>(null);
   const [filters, setFilters] = useState({ aplus: false, lowCannibal: false, lowComp: false });
-  const busy = status === 'detecting' || status === 'enriching' || status === 'reasoning';
+  const busy = isAnalysisBusy(status);
 
   const sites = useMemo(() => toDisplaySites(features, result, storeSuburb), [features, result, storeSuburb]);
   const filtered = useMemo(() => sites.filter(s => {

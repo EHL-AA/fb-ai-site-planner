@@ -4,7 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import Icon from './Icon';
 import { usePlanner } from '@/contexts/PlannerContext';
-import { usePlannerStore } from '@/lib/site-planner/data-store';
+import { usePlannerStore, isAnalysisBusy } from '@/lib/site-planner/data-store';
 import { toDisplaySites } from '@/lib/site-planner/display';
 
 const sparkBadge = (size: number): React.CSSProperties => ({
@@ -19,7 +19,7 @@ export default function AssistantPanel() {
   const [collapsed, setCollapsed] = useState(false);
   const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
-  const busy = status === 'reasoning';
+  const busy = isAnalysisBusy(status);
   const ready = features.length > 0;
   const dataLoaded = competitorsData.length > 0;
   // Chat is usable immediately (query your data) — not gated on running an analysis.

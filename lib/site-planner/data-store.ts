@@ -8,6 +8,11 @@ import {
 } from './types';
 
 export type AnalysisStatus = 'idle' | 'detecting' | 'enriching' | 'reasoning' | 'done' | 'error';
+
+/** True while an analysis run is in flight and chat should be blocked. */
+export function isAnalysisBusy(status: AnalysisStatus): boolean {
+  return status === 'detecting' || status === 'enriching' || status === 'reasoning';
+}
 export interface ChatMessage { role: 'user' | 'agent'; text: string; }
 export interface DataLayers { existing: boolean; competitors: boolean; retail: boolean; }
 export interface QueryLayer { label: string; points: PlaceRec[]; }
