@@ -23,6 +23,8 @@ npm test        # run the vitest suite
 npm run build   # production build
 ```
 
+For local UI testing without signing in (for example with Playwright), open `http://localhost:3000/?devauth=1`. The bypass only exists under the Vite dev server and is removed from production builds.
+
 ## Architecture
 
 **Entry flow:** suburb autocomplete (`components/site-planner/SuburbSearch.tsx`,

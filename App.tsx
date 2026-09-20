@@ -2,6 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
+/// <reference types="vite/client" />
 import React, { useCallback, useState, useEffect, useRef } from 'react';
 
 import Sidebar from './components/Sidebar';
@@ -204,8 +205,19 @@ function AppComponent() {
  * while the initial auth check resolves, the login screen when signed out, and
  * the full planner once a user is signed in.
  */
+/**
+ * Dev-only auth bypass for local UI testing (e.g. Playwright): active only under
+ * the Vite dev server (`import.meta.env.DEV`) AND when the URL carries `?devauth=1`.
+ * `import.meta.env.DEV` is a compile-time constant, so this branch is removed
+ * from production builds.
+ */
+const DEV_AUTH_BYPASS =
+  import.meta.env.DEV && new URLSearchParams(window.location.search).get('devauth') === '1';
+
 function AuthGate() {
   const { user, initializing } = useAuth();
+
+  if (DEV_AUTH_BYPASS) return <AppComponent />;
 
   if (initializing) {
     return (

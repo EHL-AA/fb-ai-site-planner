@@ -81,14 +81,14 @@ function SiteCard({ site, selected, onClick }: { site: DisplaySite; selected: bo
 
 export default function SitesSidebar() {
   const { runAnalysis } = usePlanner();
-  const { brand, setBrand, suburb: storeSuburb, features, result, status, selectedSiteId, selectSite } = usePlannerStore();
+  const { brand, setBrand, suburb: storeSuburb, city, features, result, status, selectedSiteId, selectSite } = usePlannerStore();
   const { toggleSidebar } = useUI();
 
   const [selection, setSelection] = useState<SuburbSelection | null>(null);
   const [filters, setFilters] = useState({ aplus: false, lowCannibal: false, lowComp: false });
   const busy = isAnalysisBusy(status);
 
-  const sites = useMemo(() => toDisplaySites(features, result, storeSuburb), [features, result, storeSuburb]);
+  const sites = useMemo(() => toDisplaySites(features, result, storeSuburb, city), [features, result, storeSuburb, city]);
   const filtered = useMemo(() => sites.filter(s => {
     if (filters.aplus && s.tier !== 'A+') return false;
     if (filters.lowCannibal && s.ownStoresWithin2km > 0) return false;

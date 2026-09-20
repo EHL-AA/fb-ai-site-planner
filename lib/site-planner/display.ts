@@ -71,13 +71,31 @@ export interface DisplaySite {
 
 /** Join the Pro ranking with the per-node feature signals into display rows,
  *  ordered best-first. Returns [] until a ranking exists. */
+const CITY_CODES: Record<string, string> = {
+  'johannesburg': 'JHB', 'sandton': 'JHB', 'cape town': 'CPT', 'durban': 'DBN', 'ethekwini': 'DBN',
+  'pretoria': 'PTA', 'tshwane': 'PTA', 'gqeberha': 'PLZ', 'port elizabeth': 'PLZ', 'bloemfontein': 'BFN',
+  'east london': 'ELS', 'polokwane': 'PTG', 'mbombela': 'MBB', 'nelspruit': 'MBB', 'kimberley': 'KIM',
+  'pietermaritzburg': 'PMB', 'george': 'GRJ', 'rustenburg': 'RBG', 'ekurhuleni': 'EKU', 'soweto': 'JHB',
+};
+
+/** Three-letter site-code prefix for a city (e.g. "Cape Town" → CPT). Unknown cities use their first three letters. */
+export function siteCodePrefix(city?: string | null): string {
+  const c = (city ?? '').trim().toLowerCase();
+  if (!c) return 'SITE';
+  if (CITY_CODES[c]) return CITY_CODES[c];
+  const letters = c.replace(/[^a-z]/g, '');
+  return letters ? letters.slice(0, 3).toUpperCase() : 'SITE';
+}
+
 export function toDisplaySites(
   features: FeatureVector[],
   result: RankedResult | null,
   suburb: string,
+  city?: string,
 ): DisplaySite[] {
   if (!result) return [];
   const featureById = new Map(features.map(f => [f.id, f]));
+  const prefix = siteCodePrefix(city);
 
   return [...result.ranked]
     .sort((a, b) => a.rank - b.rank)
@@ -88,7 +106,7 @@ export function toDisplaySites(
       const codeNum = String(site.rank).padStart(3, '0');
       return {
         id: site.id,
-        code: `JHB-${codeNum}`,
+        code: `${prefix}-${codeNum}`,
         rank: site.rank,
         name: f?.label ?? site.id,
         suburb: suburb || '',

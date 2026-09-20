@@ -3,20 +3,24 @@ import Icon from './Icon';
 import { usePlannerStore } from '@/lib/site-planner/data-store';
 import { tierColor, toDisplaySites } from '@/lib/site-planner/display';
 
-function Stat({ label, value, sub, tone = 'default' }: { label: string; value: string; sub?: string; tone?: 'default' | 'good' | 'warn' | 'bad' }) {
-  const color = { default: 'var(--ink)', good: 'var(--good)', warn: 'var(--warn)', bad: 'var(--bad)' }[tone];
+type Tone = 'default' | 'good' | 'warn' | 'bad' | 'muted';
+const TONE: Record<Tone, string> = {
+  default: 'var(--ink)', good: 'var(--good)', warn: 'var(--warn)', bad: 'var(--bad)', muted: 'var(--ink-4)',
+};
+
+function Stat({ label, value, sub, tone = 'default' }: { label: string; value: string; sub?: string; tone?: Tone }) {
   return (
-    <div style={{ padding: '12px 14px', borderRight: '1px solid var(--line)', flex: 1, minWidth: 0 }}>
-      <div style={{ fontSize: 10, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: 0.7 }}>{label}</div>
-      <div className="mono" style={{ fontSize: 18, fontWeight: 600, color, marginTop: 4, lineHeight: 1.1, letterSpacing: -0.4 }}>{value}</div>
-      {sub && <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 2 }}>{sub}</div>}
+    <div className="dc-stat">
+      <div className="dc-stat-label">{label}</div>
+      <div className="mono dc-stat-value" style={{ color: TONE[tone] }}>{value}</div>
+      {sub && <div className="dc-stat-sub">{sub}</div>}
     </div>
   );
 }
 
 function ProvBadge({ p }: { p: 'measured' | 'proxy' | 'unavailable' }) {
-  const c = p === 'measured' ? 'var(--good)' : p === 'proxy' ? 'var(--warn)' : 'var(--ink-3)';
-  return <span className="mono" style={{ fontSize: 9, color: c, border: `1px solid ${c}`, borderRadius: 3, padding: '0 4px', textTransform: 'uppercase', letterSpacing: 0.5 }}>{p}</span>;
+  const c = p === 'measured' ? 'var(--good)' : p === 'proxy' ? 'var(--warn)' : 'var(--ink-4)';
+  return <span className="mono dc-badge" style={{ color: c, borderColor: c }}>{p}</span>;
 }
 
 const METRICS = [
@@ -26,111 +30,126 @@ const METRICS = [
   { key: 'accessibility', label: 'Visibility & access' },
 ] as const;
 
+const fmtK = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `${Math.round(n)}`);
+
 export default function DetailCard() {
-  const { selectedSiteId, features, result, suburb, brand } = usePlannerStore();
+  const { selectedSiteId, features, result, suburb, city, brand } = usePlannerStore();
   const site = useMemo(() => {
-    const all = toDisplaySites(features, result, suburb);
+    const all = toDisplaySites(features, result, suburb, city);
     return all.find(s => s.id === selectedSiteId) ?? null;
-  }, [features, result, suburb, selectedSiteId]);
+  }, [features, result, suburb, city, selectedSiteId]);
 
   if (!site) return null;
   const color = tierColor(site.tier);
-  const cannibalTone = site.ownStoresWithin2km >= 2 ? 'bad' : site.ownStoresWithin2km === 1 ? 'warn' : 'good';
+  const cannibalTone: Tone = site.ownStoresWithin2km >= 2 ? 'bad' : site.ownStoresWithin2km === 1 ? 'warn' : 'good';
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${site.lat},${site.lng}`;
   const demandValue = site.demographics.lsm != null ? `LSM ${site.demographics.lsm}`
     : site.demographics.income != null ? `R${Math.round(site.demographics.income / 1000)}k`
-    : `${site.demographics.affluenceProxy0to100}/100`;
+    : `${site.demographics.affluenceProxy0to100}`;
+  const sig = site.signals;
 
   return (
-    <div style={{
-      position: 'absolute', left: 16, right: 16, bottom: 16, zIndex: 40,
-      background: 'rgba(20,18,16,0.94)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
-      border: '1px solid var(--line-2)', borderRadius: 16, boxShadow: '0 30px 80px rgba(0,0,0,0.6)',
-      animation: 'slideUp .26s cubic-bezier(.2,.8,.2,1)', overflow: 'hidden',
-    }}>
+    <div className="dc-card">
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', padding: '14px 18px', borderBottom: '1px solid var(--line)' }}>
-        <div style={{ width: 48, height: 48, borderRadius: 12, background: color, color: 'var(--accent-ink)', display: 'grid', placeItems: 'center', fontFamily: 'Geist Mono', fontSize: 22, fontWeight: 700, letterSpacing: -1, flexShrink: 0 }}>{site.score}</div>
-        <div style={{ marginLeft: 14, flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 17, fontWeight: 600 }}>{site.name}</span>
-            <span className="mono" style={{ fontSize: 11, fontWeight: 700, color, border: `1px solid ${color}`, borderRadius: 4, padding: '1px 5px' }}>{site.tier}</span>
-            <span style={{ fontSize: 11, color: 'var(--ink-2)', background: 'var(--bg-3)', border: '1px solid var(--line)', borderRadius: 4, padding: '1px 6px' }}>Rank {site.rank}</span>
+      <div className="dc-header">
+        <div className="mono dc-score" style={{ background: color }}>{site.score}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="dc-title-row">
+            <span className="dc-title">{site.name}</span>
+            <span className="mono dc-tier" style={{ color, borderColor: color }}>{site.tier}</span>
+            <span className="dc-rank">Rank {site.rank}</span>
           </div>
-          <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 3 }}>
+          <div className="dc-subtitle">
             <span className="mono">{site.code}</span> · {brand} · <span className="mono">{site.address}</span>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 6 }}>
-          <a href={mapsUrl} target="_blank" rel="noreferrer" style={{ height: 32, padding: '0 14px', background: 'linear-gradient(135deg, var(--accent), var(--accent-2))', color: 'var(--accent-ink)', borderRadius: 8, fontSize: 12, fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+          <a href={mapsUrl} target="_blank" rel="noreferrer" className="dc-open">
             Open in Maps <Icon name="chevron" size={12} />
           </a>
-          <button onClick={() => usePlannerStore.getState().selectSite(null)} style={{ background: 'var(--bg-2)', border: '1px solid var(--line)', borderRadius: 8, color: 'var(--ink-2)', cursor: 'pointer', height: 32, width: 32, display: 'grid', placeItems: 'center' }} aria-label="Close"><Icon name="close" size={14} /></button>
+          <button onClick={() => usePlannerStore.getState().selectSite(null)} className="dc-close" aria-label="Close"><Icon name="close" size={14} /></button>
         </div>
       </div>
 
-      {/* Stats row */}
-      <div style={{ display: 'flex', borderBottom: '1px solid var(--line)', flexWrap: 'wrap' }}>
-        <Stat label="Foot proxy" value={`${(site.totalReviews / 1000).toFixed(1)}k`} sub="rated POIs nearby" />
-        <Stat label="Commercial density" value={`${site.poiCount}`} sub="businesses clustered" />
-        <Stat label="Demand" value={demandValue} sub={site.demographics.source === 'csv' ? 'from your CSV' : 'maps proxy'} />
-        <Stat label="Competitors" value={`${site.competitorsWithin1km}`} sub={site.nearestCompetitorM != null ? `nearest ${site.nearestCompetitorM}m` : 'within 1km'} />
-        <Stat label="Cannibalisation" value={`${site.ownStoresWithin2km}`} sub={site.nearestOwnStoreM != null ? `nearest ${site.nearestOwnStoreM}m` : 'own stores <2km'} tone={cannibalTone} />
-        <Stat label="Transit" value={`${site.transitStopsNearby}`} sub="stops nearby" />
-      </div>
-
-      {/* Signal stats row */}
-      {site.signals && (
-        <div style={{ display: 'flex', borderBottom: '1px solid var(--line)', flexWrap: 'wrap' }}>
-          <Stat label="Foot traffic" value={site.signals.footTraffic.value ? `${(site.signals.footTraffic.value.dailyVisits / 1000).toFixed(1)}k/day` : '—'} sub={site.signals.footTraffic.value ? 'vendor feed' : 'no feed connected'} />
-          <Stat label="Congestion" value={site.signals.congestion.value ? `${site.signals.congestion.value.index0to100}` : '—'} sub={site.signals.congestion.value?.driveMinutesFromCentre != null ? `${site.signals.congestion.value.driveMinutesFromCentre} min from centre` : 'weekday 17:30'} />
-          <Stat label="Day / evening" value={site.signals.density.value ? `${site.signals.density.value.daytimeIndex0to100} / ${site.signals.density.value.eveningIndex0to100}` : '—'} sub="density within 1km" />
-          <Stat label="Affluence" value={site.signals.affluence.value ? `${site.signals.affluence.value.index0to100}` : '—'} sub={site.signals.affluence.value ? `${site.signals.affluence.value.premiumAnchors} premium · ${site.signals.affluence.value.valueAnchors} value` : 'retail mix'} />
-          <Stat label="Ward pop." value={site.signals.census.value ? `${(site.signals.census.value.population / 1000).toFixed(1)}k` : '—'} sub={site.signals.census.value ? `${site.signals.census.value.densityPerKm2}/km²` : 'census'} />
+      <div className="dc-body">
+        {/* Signals grid */}
+        <div className="dc-stats">
+          <Stat label="Foot proxy" value={fmtK(site.totalReviews)} sub={`reviews · ${site.poiCount} POIs`} />
+          <Stat
+            label="Foot traffic"
+            value={sig?.footTraffic.value ? `${fmtK(sig.footTraffic.value.dailyVisits)}/day` : 'n/a'}
+            sub={sig?.footTraffic.value ? 'vendor feed' : 'no feed connected'}
+            tone={sig?.footTraffic.value ? 'default' : 'muted'} />
+          <Stat
+            label="Congestion"
+            value={sig?.congestion.value ? `${sig.congestion.value.index0to100}` : 'n/a'}
+            sub={sig?.congestion.value?.driveMinutesFromCentre != null ? `${sig.congestion.value.driveMinutesFromCentre} min from centre` : 'weekday 17:30'}
+            tone={sig?.congestion.value ? 'default' : 'muted'} />
+          <Stat
+            label="Day / evening"
+            value={sig?.density.value ? `${sig.density.value.daytimeIndex0to100} / ${sig.density.value.eveningIndex0to100}` : 'n/a'}
+            sub="density within 1 km"
+            tone={sig?.density.value ? 'default' : 'muted'} />
+          <Stat label="Demand" value={demandValue} sub={site.demographics.source === 'csv' ? 'from your CSV' : 'blended proxy'} />
+          <Stat
+            label="Affluence"
+            value={sig?.affluence.value ? `${sig.affluence.value.index0to100}` : 'n/a'}
+            sub={sig?.affluence.value ? `${sig.affluence.value.premiumAnchors} premium · ${sig.affluence.value.valueAnchors} value` : 'retail mix'}
+            tone={sig?.affluence.value ? 'default' : 'muted'} />
+          <Stat
+            label="Ward pop."
+            value={sig?.census.value ? fmtK(sig.census.value.population) : 'n/a'}
+            sub={sig?.census.value ? `${sig.census.value.densityPerKm2}/km²` : 'census not loaded'}
+            tone={sig?.census.value ? 'default' : 'muted'} />
+          <Stat label="Competitors" value={`${site.competitorsWithin1km}`} sub={site.nearestCompetitorM != null ? `nearest ${site.nearestCompetitorM} m` : 'within 1 km'} />
+          <Stat label="Cannibalisation" value={`${site.ownStoresWithin2km}`} sub={site.nearestOwnStoreM != null ? `nearest ${site.nearestOwnStoreM} m` : 'own stores within 2 km'} tone={cannibalTone} />
+          <Stat label="Transit" value={`${site.transitStopsNearby}`} sub="stops nearby" />
         </div>
-      )}
 
-      {/* Lower: planner take + score breakdown */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px 300px' }}>
-        <div style={{ padding: '14px 18px', borderRight: '1px solid var(--line)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-            <span style={{ width: 18, height: 18, borderRadius: 18, background: 'linear-gradient(135deg, var(--accent), var(--accent-2))', display: 'grid', placeItems: 'center', color: 'var(--accent-ink)' }}><Icon name="sparkle" size={10} stroke={2.4} /></span>
-            <span style={{ fontSize: 11, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: 1 }}>Planner take</span>
+        {/* Planner take + right rail */}
+        <div className="dc-lower">
+          <div className="dc-take">
+            <div className="dc-section-head">
+              <span className="dc-spark"><Icon name="sparkle" size={10} stroke={2.4} /></span>
+              <span className="dc-section-title">Planner take</span>
+            </div>
+            <p className="dc-rationale">{site.rationale}</p>
+            {site.risks && (
+              <div className="dc-risk">
+                <Icon name="warning" size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+                <span>{site.risks}</span>
+              </div>
+            )}
           </div>
-          <div style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--ink-2)' }}>{site.rationale}</div>
-          {site.risks && (
-            <div style={{ marginTop: 12, fontSize: 12.5, lineHeight: 1.5, color: 'var(--bad)', display: 'flex', gap: 8, background: 'rgba(239,106,94,0.08)', borderLeft: '2px solid var(--bad)', borderRadius: '0 8px 8px 0', padding: '9px 12px' }}>
-              <Icon name="warning" size={15} style={{ flexShrink: 0, marginTop: 1 }} />
-              <span>{site.risks}</span>
+
+          <div className="dc-rail">
+            <div>
+              <div className="dc-section-title">Score breakdown</div>
+              {METRICS.map(m => {
+                const v = Math.round(site.breakdown[m.key]);
+                return (
+                  <div key={m.key} className="dc-bar-row">
+                    <span className="dc-bar-label">{m.label}</span>
+                    <div className="dc-bar"><div style={{ width: `${v}%`, background: color }} /></div>
+                    <span className="mono dc-bar-value">{v}</span>
+                  </div>
+                );
+              })}
             </div>
-          )}
-        </div>
-        <div style={{ padding: '14px 18px' }}>
-          <div style={{ fontSize: 11, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Score breakdown</div>
-          {METRICS.map(m => {
-            const v = Math.round(site.breakdown[m.key]);
-            return (
-              <div key={m.key} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <span style={{ fontSize: 11, color: 'var(--ink-2)', flex: 1 }}>{m.label}</span>
-                <div style={{ width: 110, height: 4, background: 'var(--bg-3)', borderRadius: 4, overflow: 'hidden' }}>
-                  <div style={{ width: `${v}%`, height: '100%', background: color, borderRadius: 4 }} />
+
+            <div>
+              <div className="dc-section-title">Data sources</div>
+              {site.sources.map(s => (
+                <div key={s.label} className="dc-source" title={s.provenance !== 'unavailable' ? s.note : undefined}>
+                  <div className="dc-source-row">
+                    <ProvBadge p={s.provenance} />
+                    <span className="dc-source-label" style={{ color: s.provenance === 'unavailable' ? 'var(--ink-3)' : 'var(--ink-2)' }}>{s.label}</span>
+                  </div>
+                  {s.provenance === 'unavailable' && s.note && <div className="dc-source-note">{s.note}</div>}
                 </div>
-                <span className="mono" style={{ fontSize: 11, color: 'var(--ink)', minWidth: 24, textAlign: 'right' }}>{v}</span>
-              </div>
-            );
-          })}
-        </div>
-        <div style={{ padding: '14px 18px', borderLeft: '1px solid var(--line)' }}>
-          <div style={{ fontSize: 11, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Data sources</div>
-          {site.sources.map(s => (
-            <div key={s.label} style={{ marginBottom: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 11, color: 'var(--ink-2)', flex: 1 }}>{s.label}</span>
-                <ProvBadge p={s.provenance} />
-              </div>
-              {s.note && <div style={{ fontSize: 10.5, color: 'var(--ink-3)', marginTop: 1, lineHeight: 1.4 }}>{s.note}</div>}
+              ))}
             </div>
-          ))}
+          </div>
         </div>
       </div>
     </div>

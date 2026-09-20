@@ -15,7 +15,7 @@ const sparkBadge = (size: number): React.CSSProperties => ({
 
 export default function AssistantPanel() {
   const { ask } = usePlanner();
-  const { chat, status, features, result, suburb, brand, selectedSiteId, competitorsData } = usePlannerStore();
+  const { chat, status, features, result, suburb, city, brand, selectedSiteId, competitorsData } = usePlannerStore();
   const [collapsed, setCollapsed] = useState(false);
   const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -28,7 +28,7 @@ export default function AssistantPanel() {
     : ['Show all burger places', 'Show all pizza places', 'Where are the KFCs'];
 
   const selected = useMemo(
-    () => toDisplaySites(features, result, suburb).find(s => s.id === selectedSiteId) ?? null,
+    () => toDisplaySites(features, result, suburb, city).find(s => s.id === selectedSiteId) ?? null,
     [features, result, suburb, selectedSiteId],
   );
 
