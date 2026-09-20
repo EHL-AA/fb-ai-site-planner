@@ -13,7 +13,7 @@ function LegendRow({ swatch, label }: { swatch: React.ReactNode; label: string }
 }
 
 export default function MapChrome() {
-  const { city, suburb, features, dataLayers, toggleLayer, competitorsData, retailData, existingStores, brand } = usePlannerStore();
+  const { city, suburb, features, dataLayers, toggleLayer, competitorsData, retailData, existingStores, brand, apiCalls } = usePlannerStore();
   const hasResult = features.length > 0;
   const hasData = competitorsData.length > 0 || retailData.length > 0 || existingStores.length > 0;
 
@@ -31,6 +31,7 @@ export default function MapChrome() {
           <Icon name="map" size={14} style={{ color: 'var(--ink-3)' }} />
           <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>{city || 'Map'} ›</span>
           <span style={{ fontSize: 12, color: 'var(--ink)', fontWeight: 600 }}>{suburb || 'pick a suburb'}</span>
+          {apiCalls > 0 && <span className="mono" style={{ fontSize: 10, color: 'var(--ink-3)', marginLeft: 6 }}>· {apiCalls} API calls</span>}
         </div>
       )}
 

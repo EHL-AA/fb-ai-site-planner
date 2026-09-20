@@ -1,4 +1,5 @@
-import { FeatureVector, RankedResult, RankedSite } from './types';
+import { FeatureVector, RankedResult, RankedSite, SourceRow } from './types';
+import { NodeSignals } from './signals/types';
 
 export interface BrandMeta {
   name: string;
@@ -64,6 +65,8 @@ export interface DisplaySite {
   ownStoresWithin2km: number;
   nearestOwnStoreM: number | null;
   demographics: FeatureVector['demographics'];
+  signals?: NodeSignals;
+  sources: SourceRow[];
 }
 
 /** Join the Pro ranking with the per-node feature signals into display rows,
@@ -108,6 +111,8 @@ export function toDisplaySites(
         ownStoresWithin2km: f?.cannibalisation.ownStoresWithin2km ?? 0,
         nearestOwnStoreM: f?.cannibalisation.nearestOwnStoreM ?? null,
         demographics: f?.demographics ?? { source: 'proxy', affluenceProxy0to100: 0 },
+        signals: f?.signals,
+        sources: f?.sources ?? [],
       };
     });
 }

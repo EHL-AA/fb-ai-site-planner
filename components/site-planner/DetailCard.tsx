@@ -14,6 +14,11 @@ function Stat({ label, value, sub, tone = 'default' }: { label: string; value: s
   );
 }
 
+function ProvBadge({ p }: { p: 'measured' | 'proxy' | 'unavailable' }) {
+  const c = p === 'measured' ? 'var(--good)' : p === 'proxy' ? 'var(--warn)' : 'var(--ink-3)';
+  return <span className="mono" style={{ fontSize: 9, color: c, border: `1px solid ${c}`, borderRadius: 3, padding: '0 4px', textTransform: 'uppercase', letterSpacing: 0.5 }}>{p}</span>;
+}
+
 const METRICS = [
   { key: 'traffic', label: 'Traffic & footfall' },
   { key: 'demographics', label: 'Demographic fit' },
@@ -74,8 +79,19 @@ export default function DetailCard() {
         <Stat label="Transit" value={`${site.transitStopsNearby}`} sub="stops nearby" />
       </div>
 
+      {/* Signal stats row */}
+      {site.signals && (
+        <div style={{ display: 'flex', borderBottom: '1px solid var(--line)', flexWrap: 'wrap' }}>
+          <Stat label="Foot traffic" value={site.signals.footTraffic.value ? `${(site.signals.footTraffic.value.dailyVisits / 1000).toFixed(1)}k/day` : '—'} sub={site.signals.footTraffic.value ? 'vendor feed' : 'no feed connected'} />
+          <Stat label="Congestion" value={site.signals.congestion.value ? `${site.signals.congestion.value.index0to100}` : '—'} sub={site.signals.congestion.value?.driveMinutesFromCentre != null ? `${site.signals.congestion.value.driveMinutesFromCentre} min from centre` : 'weekday 17:30'} />
+          <Stat label="Day / evening" value={site.signals.density.value ? `${site.signals.density.value.daytimeIndex0to100} / ${site.signals.density.value.eveningIndex0to100}` : '—'} sub="density within 1km" />
+          <Stat label="Affluence" value={site.signals.affluence.value ? `${site.signals.affluence.value.index0to100}` : '—'} sub={site.signals.affluence.value ? `${site.signals.affluence.value.premiumAnchors} premium · ${site.signals.affluence.value.valueAnchors} value` : 'retail mix'} />
+          <Stat label="Ward pop." value={site.signals.census.value ? `${(site.signals.census.value.population / 1000).toFixed(1)}k` : '—'} sub={site.signals.census.value ? `${site.signals.census.value.densityPerKm2}/km²` : 'census'} />
+        </div>
+      )}
+
       {/* Lower: planner take + score breakdown */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px 300px' }}>
         <div style={{ padding: '14px 18px', borderRight: '1px solid var(--line)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
             <span style={{ width: 18, height: 18, borderRadius: 18, background: 'linear-gradient(135deg, var(--accent), var(--accent-2))', display: 'grid', placeItems: 'center', color: 'var(--accent-ink)' }}><Icon name="sparkle" size={10} stroke={2.4} /></span>
@@ -103,6 +119,22 @@ export default function DetailCard() {
               </div>
             );
           })}
+        </div>
+        <div style={{ padding: '14px 18px', borderLeft: '1px solid var(--line)' }}>
+          <div style={{ fontSize: 11, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Data sources</div>
+          <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 11, color: 'var(--ink-2)', flex: 1 }}>Google Places review density</span><ProvBadge p="proxy" />
+          </div>
+          {site.sources.map(s => (
+            <div key={s.label} style={{ marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 11, color: 'var(--ink-2)', flex: 1 }}>{s.label}</span>
+                <ProvBadge p={s.provenance} />
+              </div>
+              {s.note && <div style={{ fontSize: 10.5, color: 'var(--ink-3)', marginTop: 1, lineHeight: 1.4 }}>{s.note}</div>}
+            </div>
+          ))}
+          {site.sources.length === 0 && <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>Review-density proxy only.</div>}
         </div>
       </div>
     </div>

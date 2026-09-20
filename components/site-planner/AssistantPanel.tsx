@@ -24,7 +24,7 @@ export default function AssistantPanel() {
   const dataLoaded = competitorsData.length > 0;
   // Chat is usable immediately (query your data) — not gated on running an analysis.
   const suggestions = ready
-    ? ['Weight foot traffic higher', 'Avoid cannibalisation', 'Show all burger places']
+    ? ['Weight foot traffic higher', 'Avoid cannibalisation', 'Show all burger places', 'Why is site 2 ranked above site 1?']
     : ['Show all burger places', 'Show all pizza places', 'Where are the KFCs'];
 
   const selected = useMemo(
@@ -94,6 +94,7 @@ export default function AssistantPanel() {
             <span style={{ ...sparkBadge(30) }}><Icon name="sparkle" size={15} stroke={2.2} /></span>
             <p style={{ margin: 0, color: 'var(--ink-2)', fontSize: 14, fontWeight: 600 }}>Ask me anything about your map.</p>
             <p style={{ margin: 0 }}>{dataLoaded ? 'Try “show all burger places” or “pizza places” to map your competitor data — no need to run an analysis first. Or pick a suburb and hit Find sites, then ask me to re-rank.' : 'Loading your Famous Brands data…'}</p>
+            {ready && <p style={{ margin: 0 }}>Every ranking shows its data sources — ask which signals are measured vs proxies.</p>}
           </div>
         )}
         {chat.map((m, i) => (
