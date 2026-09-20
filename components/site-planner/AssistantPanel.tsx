@@ -120,7 +120,7 @@ export default function AssistantPanel() {
               </span>
               <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>
                 {chatActivity === 'answering' ? 'Answering from the current ranking…'
-                  : chatActivity === 'reranking' ? `Re-ranking ${features.length} sites (about 45 s)…`
+                  : chatActivity === 'reranking' ? `Re-ranking ${features.length} sites — usually under a minute…`
                   : status === 'detecting' ? 'Scanning Google Places…'
                   : status === 'enriching' ? 'Gathering traffic, hours and price signals…'
                   : status === 'reasoning' ? `${REASONING_MODEL_LABEL} is ranking sites…`
