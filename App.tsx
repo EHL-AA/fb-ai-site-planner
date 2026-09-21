@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 /// <reference types="vite/client" />
-import React, { useCallback, useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 import Sidebar from './components/Sidebar';
 import SitesSidebar from './components/site-planner/SitesSidebar';
@@ -14,8 +14,7 @@ import { PlannerProvider } from './contexts/PlannerContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import LoginScreen from './components/auth/LoginScreen';
 import UserMenu from './components/auth/UserMenu';
-import { APIProvider, useMapsLibrary } from '@vis.gl/react-google-maps';
-import { Map3D, Map3DCameraProps } from './components/map-3d';
+import { APIProvider, Map, useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
 import { useMapStore, MapMarker } from './lib/state';
 import { MapController } from './lib/map-controller';
 import { usePlannerStore } from './lib/site-planner/data-store';
@@ -31,33 +30,45 @@ if (typeof API_KEY !== 'string') {
 const MAPS_API_KEY =
   process.env.MAPS_API_KEY 
 
-const INITIAL_VIEW_PROPS = {
-  center: { lat: -26.1076, lng: 28.0567, altitude: 1000 }, // Sandton, Johannesburg
-  range: 3000,
-  heading: 0,
-  tilt: 30,
-  roll: 0,
-};
+const INITIAL_CENTER = { lat: -26.1076, lng: 28.0567 }; // Sandton, Johannesburg
+const INITIAL_ZOOM = 13;
+
+// Map ID for the standard roadmap. Advanced markers need one; Google's
+// DEMO_MAP_ID works for development. Set MAPS_MAP_ID in .env for a styled map.
+const MAP_ID = process.env.MAPS_MAP_ID || 'DEMO_MAP_ID';
+
+/** Hands the underlying google.maps.Map instance up to the app once it exists. */
+function MapHandle({ onReady }: { onReady: (map: google.maps.Map | null) => void }) {
+  const map = useMap();
+  useEffect(() => {
+    onReady(map);
+    return () => onReady(null);
+  }, [map, onReady]);
+  return null;
+}
 
 /**
  * The main application component. It is the primary view controller: it lays out
  * the planner UI and reacts to global map state (ranked candidate markers and
- * camera targets) to drive the 3D map.
+ * camera targets) to drive the map.
  */
 function AppComponent() {
-  const [map, setMap] = useState<google.maps.maps3d.Map3DElement | null>(null);
+  const [map, setMap] = useState<google.maps.Map | null>(null);
   const placesLib = useMapsLibrary('places');
   const geocodingLib = useMapsLibrary('geocoding');
-  // Loading the marker library lets MapController colour-tint ranked pins.
-  useMapsLibrary('marker');
+  // The marker library provides AdvancedMarkerElement + PinElement for the pins.
+  const markerLib = useMapsLibrary('marker');
   const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null);
-  const [viewProps, setViewProps] = useState(INITIAL_VIEW_PROPS);
   const { markers, dataMarkers, cameraTarget, setCameraTarget, preventAutoFrame } = useMapStore();
   const mapController = useRef<MapController | null>(null);
+  // Read through a ref so flipping preventAutoFrame back to false (after a fly-to
+  // lands) doesn't itself re-run the marker effect and re-frame over the fly-to.
+  const preventAutoFrameRef = useRef(preventAutoFrame);
+  preventAutoFrameRef.current = preventAutoFrame;
 
   // Planner data layers (your competitor / retail data + chat query results).
   const dataLayers = usePlannerStore(s => s.dataLayers);
-  const queryLayer = usePlannerStore(s => s.queryLayer);
+  const queryLayers = usePlannerStore(s => s.queryLayers);
   const viewCenter = usePlannerStore(s => s.viewCenter);
   const competitorsData = usePlannerStore(s => s.competitorsData);
   const retailData = usePlannerStore(s => s.retailData);
@@ -88,16 +99,13 @@ function AppComponent() {
         out.push({ position: { lat: p.lat, lng: p.lng, altitude: 1 }, label: p.n || p.b, showLabel: false, kind: 'retail' });
       }
     }
-    if (queryLayer) {
-      for (const p of queryLayer.points) {
-        out.push({ position: { lat: p.lat, lng: p.lng, altitude: 1 }, label: p.n || p.b, showLabel: false, kind: 'query' });
+    for (const layer of queryLayers) {
+      for (const p of layer.points) {
+        out.push({ position: { lat: p.lat, lng: p.lng, altitude: 1 }, label: `${p.n || p.b} · ${layer.label}`, showLabel: false, kind: 'query', color: layer.color, glyph: layer.brand ? layer.brand[0].toUpperCase() : undefined });
       }
     }
     useMapStore.getState().setDataMarkers(out);
-  }, [dataLayers, queryLayer, viewCenter, competitorsData, retailData, existingStores]);
-
-  const maps3dLib = useMapsLibrary('maps3d');
-  const elevationLib = useMapsLibrary('elevation');
+  }, [dataLayers, queryLayers, viewCenter, competitorsData, retailData, existingStores]);
 
   // Padding ensures framed map content isn't hidden behind the side rails.
   const [padding, setPadding] = useState<[number, number, number, number]>([0.05, 0.05, 0.05, 0.05]);
@@ -109,15 +117,16 @@ function AppComponent() {
     }
   }, [geocodingLib]);
 
-  // Instantiate the MapController once the map element and libraries are ready.
+  // Instantiate the MapController once the map and marker library are ready.
   useEffect(() => {
-    if (map && maps3dLib && elevationLib) {
-      mapController.current = new MapController({ map, maps3dLib, elevationLib });
+    if (map && markerLib) {
+      mapController.current = new MapController({ map });
     }
     return () => {
+      mapController.current?.clearMap();
       mapController.current = null;
     };
-  }, [map, maps3dLib, elevationLib]);
+  }, [map, markerLib]);
 
   // Responsive padding from the left rail + right chat dock widths, so framed
   // map content stays clear of both side panels.
@@ -142,16 +151,9 @@ function AppComponent() {
     };
   }, []);
 
-  // Hide the alpha API banner once the map loads.
-  useEffect(() => {
-    if (map) {
-      const banner = document.querySelector('.vAygCK-api-load-alpha-banner') as HTMLElement;
-      if (banner) banner.style.display = 'none';
-    }
-  }, [map]);
-
   // Reactively render candidate markers + data-layer markers; frame candidates
   // (or, if there are none, the data layer) unless a direct fly-to is in play.
+  // `map`/`markerLib` are deps so the first render happens once the controller exists.
   useEffect(() => {
     if (!mapController.current) return;
     const controller = mapController.current;
@@ -160,11 +162,11 @@ function AppComponent() {
     if (markers.length > 0) controller.addMarkers(markers);
     if (dataMarkers.length > 0) controller.addDataMarkers(dataMarkers);
 
-    if (!preventAutoFrame) {
+    if (!preventAutoFrameRef.current) {
       const toFrame = markers.length > 0 ? markers : dataMarkers;
       if (toFrame.length > 0) controller.frameEntities(toFrame.map(m => ({ position: m.position })), padding);
     }
-  }, [markers, dataMarkers, padding, preventAutoFrame]);
+  }, [markers, dataMarkers, padding, map, markerLib]);
 
   // React to direct camera-fly requests (suburb fly-to, ranked-site fly-to).
   useEffect(() => {
@@ -173,22 +175,24 @@ function AppComponent() {
       setCameraTarget(null);
       useMapStore.getState().setPreventAutoFrame(false);
     }
-  }, [cameraTarget, setCameraTarget]);
-
-  const handleCameraChange = useCallback((props: Map3DCameraProps) => {
-    setViewProps(oldProps => ({ ...oldProps, ...props }));
-  }, []);
+  }, [cameraTarget, setCameraTarget, map, markerLib]);
 
   return (
     <PlannerProvider placesLib={placesLib} geocoder={geocoder} mapsApiKey={MAPS_API_KEY ?? ''}>
       <div style={{ display: 'flex', width: '100vw', height: '100vh', background: 'var(--bg)' }}>
         <SitesSidebar />
         <main className="map-stage">
-          <Map3D
-            ref={element => setMap(element ?? null)}
-            onCameraChange={handleCameraChange}
-            {...viewProps}
-          />
+          <Map
+            mapId={MAP_ID}
+            defaultCenter={INITIAL_CENTER}
+            defaultZoom={INITIAL_ZOOM}
+            gestureHandling="greedy"
+            disableDefaultUI
+            zoomControl
+            clickableIcons={false}
+            style={{ width: '100%', height: '100%' }}>
+            <MapHandle onReady={setMap} />
+          </Map>
           <MapChrome />
           <DetailCard />
         </main>
@@ -242,14 +246,14 @@ function AuthGate() {
 }
 
 /**
- * Root component. Provides the Google Maps Platform context for the 3D map.
+ * Root component. Provides the Google Maps Platform context for the map.
  */
 function App() {
   return (
     <div className="App">
       <AuthProvider>
         <APIProvider
-          version={'alpha'}
+          version={'weekly'}
           apiKey={MAPS_API_KEY}
           solutionChannel={'gmp_aistudio_itineraryapplet_v1.0.0'}>
           <AuthGate />

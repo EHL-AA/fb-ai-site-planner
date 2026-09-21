@@ -20,6 +20,9 @@ export default defineConfig(({ mode }) => {
         // Google Maps Platform key (Places New, Maps JS, Geocoding, 3D tiles).
         // Set MAPS_API_KEY in .env to use your own billed key.
         'process.env.MAPS_API_KEY': JSON.stringify(env.MAPS_API_KEY || ''),
+        // Optional Map ID for the 2D roadmap (cloud-styled maps). Falls back to
+        // Google's DEMO_MAP_ID, which is fine for development.
+        'process.env.MAPS_MAP_ID': JSON.stringify(env.MAPS_MAP_ID || ''),
         // Firebase Authentication config. Copy these from your Firebase project's
         // web app settings (Project settings → General → Your apps) into .env.
         'process.env.FIREBASE_API_KEY': JSON.stringify(env.FIREBASE_API_KEY || ''),

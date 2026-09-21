@@ -1,7 +1,8 @@
 import React, { createContext, FC, ReactNode, useContext, useCallback } from 'react';
 import { detectCommercialNodes, findBrandStores } from '@/lib/site-planner/node-detection';
-import { analyzeSuburb, rerank, answerQuestion, classifyIntent, describeRankChanges } from '@/lib/site-planner/reasoning';
-import { queryPlaces } from '@/lib/site-planner/places-data';
+import { analyzeSuburb, rerank, answerQuestion, answerMapQuestion, classifyIntent, describeRankChanges } from '@/lib/site-planner/reasoning';
+import { queryPlaces, parseFocusRequest, splitLocation, knownQueryTerms, nearby, datasetSummary } from '@/lib/site-planner/places-data';
+import { haversineMeters } from '@/lib/site-planner/geo';
 import { usePlannerStore } from '@/lib/site-planner/data-store';
 import { gatherSignals, CallBudget } from '@/lib/site-planner/signals';
 import { composeFeatures } from '@/lib/site-planner/compose-features';
@@ -126,27 +127,115 @@ export const PlannerProvider: FC<{
     await doRerank('Apply the scoring weights exactly as given; do not reinterpret them.');
   }, [doRerank]);
 
+  /** Geocodes a place name (South Africa first) into a centre, label and a
+   *  sensible radius / camera range from its viewport. */
+  const geocodePlace = useCallback(async (place: string) => {
+    if (!geocoder) return null;
+    try {
+      // Google resolves "Cape Town CBD" to the whole city; "City Centre" gives the actual centre.
+      const address = place.replace(/\b(cbd|central business district|city center|downtown|town centre|town center)\b/i, 'City Centre');
+      const { results } = await geocoder.geocode({ address: `${address}, South Africa` });
+      const r = results[0];
+      if (!r) return null;
+      const center = { lat: r.geometry.location.lat(), lng: r.geometry.location.lng() };
+      const vp = r.geometry.viewport;
+      const ne = vp.getNorthEast(), sw = vp.getSouthWest();
+      const diag = haversineMeters(ne.lat(), ne.lng(), sw.lat(), sw.lng());
+      const label = r.address_components?.[0]?.long_name || place;
+      return { center, label, radiusM: Math.max(5000, diag / 2), range: Math.min(120000, Math.max(3000, diag)) };
+    } catch {
+      return null;
+    }
+  }, [geocoder]);
+
   const ask = useCallback(async (message: string) => {
     const s = usePlannerStore.getState();
     s.addChat({ role: 'user', text: message });
 
-    // 1) A query over your competitor / retail data ("show all burger places")
-    const haveData = s.competitorsData.length > 0 || s.retailData.length > 0;
-    const q = haveData ? queryPlaces(message, { competitors: s.competitorsData, retail: s.retailData }, s.viewCenter) : null;
+    // 0) "clear the map" / "remove the pins" → drop every chat query layer.
+    if (s.queryLayers.length && /\b(clear|remove|hide|reset)\b.*\b(map|pins?|markers?|layers?|places|results?)\b/i.test(message)) {
+      s.clearQueryLayers();
+      s.addChat({ role: 'agent', text: 'Cleared the query pins from the map.' });
+      return;
+    }
+
+    const data = { competitors: s.competitorsData, retail: s.retailData };
+    const haveData = data.competitors.length > 0 || data.retail.length > 0;
+
+    // 0.5) "lets narrow this to the cape town cbd" / "focus on sandton" → refocus the
+    //      map there and re-run every active query against the new centre.
+    //      "show burger places in cape town" → focus first, then run the query.
+    const focusPlace = parseFocusRequest(message);
+    const split = focusPlace ? { query: message, place: null } : splitLocation(message, haveData ? knownQueryTerms(data) : []);
+    const place = focusPlace ?? split.place;
+    let focused: Awaited<ReturnType<typeof geocodePlace>> = null;
+    if (place) {
+      focused = await geocodePlace(place);
+      if (!focused) {
+        s.addChat({ role: 'agent', text: geocoder ? `I couldn't find **${place}** — try a suburb or city name.` : 'Map libraries are still loading — try again in a moment.' });
+        return;
+      }
+      s.setViewFocus({ center: focused.center, label: focused.label, radiusM: focused.radiusM });
+      useMapStore.getState().setPreventAutoFrame(true);
+      useMapStore.getState().setCameraTarget({ center: { ...focused.center, altitude: 4000 }, range: focused.range, tilt: 25, heading: 0, roll: 0 });
+      // Every active query layer now follows the new focus.
+      const st = usePlannerStore.getState();
+      const parts: string[] = [];
+      for (const layer of st.queryLayers) {
+        const rq = queryPlaces(layer.query, data, focused.center, focused.radiusM);
+        if (!rq) continue;
+        st.addQueryLayer({ label: layer.label, points: rq.points, query: layer.query, brand: rq.brand });
+        parts.push(`**${rq.points.length}** ${layer.label} (${layer.colorName})`);
+      }
+      if (focusPlace) {
+        const summary = parts.length ? ` Showing ${parts.join(', ')} there.` : ' Ask me to show places, e.g. “show all burger places”.';
+        s.addChat({ role: 'agent', text: `Focused on **${focused.label}**.${summary}` });
+        return;
+      }
+    }
+
+    // 1) A query over your competitor / retail data ("show all burger places").
+    //    Each query gets its own pin colour and stacks with earlier ones.
+    const st = usePlannerStore.getState();
+    const q = haveData ? queryPlaces(split.query, data, st.viewCenter, st.viewRadiusM ?? Infinity) : null;
     if (q) {
-      s.setQueryLayer({ label: q.label, points: q.points });
-      // Fly to the extent of the matched points.
-      if (q.points.length) {
+      const layer = s.addQueryLayer({ label: q.label, points: q.points, query: split.query, brand: q.brand });
+      // Fly to the extent of the matched points (unless we just focused on a place).
+      if (q.points.length && !focused) {
         const lat = q.points.reduce((a, p) => a + p.lat, 0) / q.points.length;
         const lng = q.points.reduce((a, p) => a + p.lng, 0) / q.points.length;
         useMapStore.getState().setPreventAutoFrame(true);
-        useMapStore.getState().setCameraTarget({ center: { lat, lng, altitude: 4000 }, range: s.viewCenter ? 9000 : 60000, tilt: 25, heading: 0, roll: 0 });
+        useMapStore.getState().setCameraTarget({ center: { lat, lng, altitude: 4000 }, range: st.viewCenter ? 9000 : 60000, tilt: 25, heading: 0, roll: 0 });
       }
       const brands = q.topBrands.map(([b, n]) => `${b} (${n})`).join(', ');
-      const where = s.suburb ? ` near ${s.suburb}` : ' (nationwide — pick a suburb to focus)';
-      s.addChat({ role: 'agent', text: `Showing **${q.points.length}** of ${q.total} ${q.label}${where} on the map.${brands ? ` Top brands: ${brands}.` : ''}` });
+      const near = st.suburb || st.viewLabel;
+      const where = near ? ` near ${near}` : ' (nationwide — say “focus on Sandton” or pick a suburb to narrow it)';
+      const others = usePlannerStore.getState().queryLayers.filter(l => l.label !== layer.label);
+      const alongside = others.length ? ` Still showing ${others.map(l => `${l.label} (${l.colorName})`).join(', ')}; say "clear the map" to remove them.` : '';
+      s.addChat({ role: 'agent', text: `Showing **${q.points.length}** of ${q.total} ${q.label}${where} as **${layer.colorName}** pins.${brands ? ` Top brands: ${brands}.` : ''}${alongside}` });
       return;
     }
+
+    // Competitor / retail outlets + layers around the current focus, for both question paths.
+    const mapContext = () => {
+      const cur = usePlannerStore.getState();
+      const center = focused?.center ?? cur.viewCenter;
+      const radiusM = focused?.radiusM ?? cur.viewRadiusM ?? 6000;
+      const focusLabel = focused?.label ?? cur.viewLabel ?? (cur.suburb ? `${cur.suburb}, ${cur.city}` : null);
+      return {
+        brand: cur.brand,
+        focus: center && focusLabel ? { label: focusLabel, center, radiusM } : null,
+        layers: cur.queryLayers.map(l => {
+          const rq = queryPlaces(l.query, data, null);
+          return { label: l.label, colorName: l.colorName, count: l.points.length, total: rq?.total ?? l.points.length, topBrands: rq?.topBrands ?? [], sample: nearby(l.points, center, 12) };
+        }),
+        nearbyCompetitors: center ? nearby(data.competitors, center, 60, radiusM) : [],
+        nearbyRetail: center ? nearby(data.retail, center, 30, radiusM) : [],
+        existingStores: cur.existingStores,
+        dataset: haveData ? datasetSummary(data) : undefined,
+        history: cur.chat.slice(0, -1),
+      };
+    };
 
     // 2) A question about the current ranking → answer it without touching the ranking
     if (s.features.length && classifyIntent(message) === 'question') {
@@ -154,10 +243,11 @@ export const PlannerProvider: FC<{
       s.setChatActivity('answering');
       try {
         const text = await answerQuestion(
-          { brand: s.brand, suburb: s.suburb, features: s.features, weights: s.weights, result: s.result, history: s.chat.slice(0, -1) },
-          message,
+          { brand: s.brand, suburb: s.suburb, features: s.features, weights: s.weights, result: s.result, history: s.chat.slice(0, -1), map: mapContext() },
+          split.query,
         );
-        s.addChat({ role: 'agent', text });
+        const lead = focused && !focusPlace ? `Focused on **${focused.label}**. ` : '';
+        s.addChat({ role: 'agent', text: lead + text });
       } catch (e: any) {
         s.addChat({ role: 'agent', text: `Sorry — I couldn't answer that: ${e?.message ?? 'unknown error'}` });
       } finally {
@@ -170,12 +260,25 @@ export const PlannerProvider: FC<{
     // 3) An instruction → re-rank the current candidate sites
     if (s.features.length) { await doRerank(message); return; }
 
-    // 4) Guidance
-    s.addChat({
-      role: 'agent',
-      text: 'I can map your data — try **“show all burger places”** or **“pizza places”**, or a brand like **“where are the KFCs”**. To rank store locations, set a city + suburb and hit **Find sites**.',
-    });
-  }, [doRerank]);
+    // 4) Anything else → an ad-hoc answer from the competitor / retail data around
+    //    the current focus ("where would a Debonairs work in Sea Point?").
+    const cur = usePlannerStore.getState();
+    s.setStatus('reasoning');
+    s.setChatActivity('answering');
+    try {
+      const text = await answerMapQuestion(mapContext(), split.query);
+      const lead = focused && !focusPlace ? `Focused on **${focused.label}**. ` : '';
+      s.addChat({ role: 'agent', text: lead + text });
+    } catch (e: any) {
+      s.addChat({
+        role: 'agent',
+        text: `Sorry — I couldn't answer that (${e?.message ?? 'unknown error'}). I can map your data — try **“show all burger places”** or **“where are the KFCs”**, narrow it with **“focus on Cape Town CBD”**, or set a suburb and hit **Find sites** for a scored ranking.`,
+      });
+    } finally {
+      usePlannerStore.getState().setStatus(cur.features.length ? 'done' : 'idle');
+      usePlannerStore.getState().setChatActivity(null);
+    }
+  }, [doRerank, geocodePlace, geocoder]);
 
   return <Ctx.Provider value={{ placesLib, geocoder, runAnalysis, ask, rerankWithWeights }}>{children}</Ctx.Provider>;
 };

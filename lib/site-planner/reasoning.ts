@@ -1,4 +1,6 @@
 import { GoogleGenAI, ThinkingLevel } from '@google/genai';
+import { haversineMeters, LatLng } from './geo';
+import type { PlaceRec } from './places-data';
 import { FeatureVector, RankedResult, ScoringWeights } from './types';
 
 export interface ChatTurn { role: 'user' | 'agent'; text: string; }
@@ -204,8 +206,12 @@ question about a ranking you already produced. Rules:
   price band, competitors, distances). Never invent data.
 - Keep it short: under 140 words, markdown, one short lead sentence then 2–5 bullets. Refer to sites as
   "Site 2 (Near X)".
-- If the data cannot answer the question, say exactly what is missing and what would unlock it (e.g. enable the
-  Places Aggregate API; load census wards; the app measures vehicle congestion, not pedestrian footfall).
+- Besides the ranking, you are given the bundled competitor and retail-anchor dataset around the suburb: individual
+  outlets with brand, name, address and distance from the suburb centre, plus any brand layers the planner has put on
+  the map. Use it to name specific brands and outlets (e.g. which McDonald's or KFC sits near a site). Never say brand
+  data is unavailable or suggest enabling an API when that block lists the outlets.
+- If the data cannot answer the question, say exactly what is missing and what would unlock it (e.g. load census wards;
+  the app measures vehicle congestion, not pedestrian footfall).
 - If the user's premise is wrong, correct it gently and factually ("It's the other way round: …"), never call it incorrect.
 - "unavailable" means not measured for that site; never present it as zero.
 - Stats SA did not release Census 2022 income; loading the census unlocks population and density only. Income or LSM
@@ -213,7 +219,9 @@ question about a ranking you already produced. Rules:
 - You cannot change the brand. The ranking, existing-store layer and cannibalisation are specific to the brand the planner
   selected; to assess another Famous Brands marque, tell them to pick it in the brand chips and press Find sites.`;
 
-export function buildAnswerPrompt(input: PromptInput & { result: RankedResult | null; history?: ChatTurn[] }, question: string): string {
+export type AnswerInput = PromptInput & { result: RankedResult | null; history?: ChatTurn[]; /** competitor / retail outlets + map layers around the suburb */ map?: MapQuestionInput };
+
+export function buildAnswerPrompt(input: AnswerInput, question: string): string {
   const history = (input.history ?? []).slice(-6).map(t => `${t.role === 'user' ? 'Planner' : 'Analyst'}: ${t.text}`).join('\n');
   return [
     `Brand: ${input.brand}. Suburb: ${input.suburb}.`,
@@ -223,13 +231,14 @@ export function buildAnswerPrompt(input: PromptInput & { result: RankedResult | 
     provenanceBlock(input.features),
     'Candidate signals (JSON, keyed by node id):',
     JSON.stringify(input.features.map(({ sources, ...rest }) => rest)),
+    ...(input.map ? ['Competitor / retail outlets and map layers around the suburb (bundled dataset):', ...mapDataBlocks(input.map)] : []),
     history ? `Recent conversation:\n${history}` : '',
     `Planner's question: ${question}`,
   ].filter(Boolean).join('\n\n');
 }
 
 /** Answer a question about the current ranking without changing it. */
-export async function answerQuestion(input: PromptInput & { result: RankedResult | null; history?: ChatTurn[] }, question: string): Promise<string> {
+export async function answerQuestion(input: AnswerInput, question: string): Promise<string> {
   if (!API_KEY) throw new Error('Missing required environment variable: API_KEY');
   const ai = new GoogleGenAI({ apiKey: API_KEY });
   const res = await ai.models.generateContent({
@@ -255,4 +264,111 @@ export function describeRankChanges(before: RankedResult | null, after: RankedRe
   const up = moves.filter(m => m.to < (m.from as number)).map(m => `${name(m.id)} ${m.from}→${m.to}`);
   const down = moves.filter(m => m.to > (m.from as number)).map(m => `${name(m.id)} ${m.from}→${m.to}`);
   return [up.length ? `**Moved up:** ${up.join(', ')}.` : '', down.length ? `**Moved down:** ${down.join(', ')}.` : ''].filter(Boolean).join(' ');
+}
+
+/* ------------------------------------------------------------------------- *
+ * Ad-hoc questions about the map (no ranking needed)
+ * ------------------------------------------------------------------------- */
+
+export interface MapLayerSummary {
+  label: string;
+  colorName: string;
+  count: number;
+  total: number;
+  topBrands: [string, number][];
+  sample: PlaceRec[];
+}
+
+export interface MapQuestionInput {
+  brand: string;
+  /** Area the map is focused on (chat focus or selected suburb), if any. */
+  focus: { label: string; center: LatLng; radiusM: number } | null;
+  layers: MapLayerSummary[];
+  nearbyCompetitors: PlaceRec[];
+  nearbyRetail: PlaceRec[];
+  existingStores: PlaceRec[];
+  /** Nationwide totals + brand tallies of the bundled datasets. */
+  dataset?: { competitors: number; retail: number; topBrands: [string, number][]; retailBrands: [string, number][] };
+  history?: ChatTurn[];
+}
+
+const SYSTEM_MAP = `You are a Famous Brands site-selection analyst (marques: Steers, Debonairs Pizza, Wimpy, Mugg & Bean,
+Fishaways, Milky Lane). The planner is exploring a map of South African competitor and retail-anchor data and asks
+ad-hoc questions. Rules:
+- Answer from the data you are given: name the actual places, brands, roads and distances that appear in it. Never
+  invent places, numbers or trade figures.
+- When asked where to put a store, reason like a property analyst: retail anchors and malls, clusters of comparable
+  fast-food trade (evidence of demand), gaps between competitors of the same category, and existing stores of the same
+  brand (cannibalisation). Give 2–3 concrete options, each anchored on a place in the data, and say which you'd pick first.
+- Say plainly that this is a read of the competitor/retail map, not a scored ranking; for a scored ranking with traffic,
+  demographics and accessibility, they should pick that suburb and press Find sites.
+- The bundled dataset always covers the whole country (its totals and brand counts are given). Never say competitor
+  data is "not loaded" or that a layer must be "enabled": if the planner wants something on the map, quote the
+  nationwide count and give the exact chat phrase, e.g. **show all McDonald's** or **show all McDonald's in Cape Town**,
+  and to narrow the area, **focus on Sea Point**.
+- If the question needs a specific area and none is focused, answer what you can from the nationwide counts, then
+  suggest the focus phrase.
+- Keep it short: under 160 words, markdown, one short lead sentence then bullets.`;
+
+function placeLine(p: PlaceRec, center: LatLng | null): string {
+  const d = center ? ` (${(haversineMeters(center.lat, center.lng, p.lat, p.lng) / 1000).toFixed(1)} km)` : '';
+  const cat = p.c ? ` [${p.c}]` : p.t ? ` [${p.t}]` : '';
+  return `- ${p.b}${p.n && p.n !== p.b ? ` — ${p.n}` : ''}${p.a ? `, ${p.a}` : ''}${cat}${d}`;
+}
+
+function brandTally(points: PlaceRec[]): string {
+  const m = new Map<string, number>();
+  for (const p of points) m.set(p.b, (m.get(p.b) ?? 0) + 1);
+  return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([b, n]) => `${b} (${n})`).join(', ');
+}
+
+/** The focus / layers / nearby-outlet blocks shared by both question prompts. */
+export function mapDataBlocks(input: MapQuestionInput): string[] {
+  const c = input.focus?.center ?? null;
+  const focus = input.focus
+    ? `Map focus: ${input.focus.label} (centre ${input.focus.center.lat.toFixed(4)}, ${input.focus.center.lng.toFixed(4)}; radius ${(input.focus.radiusM / 1000).toFixed(0)} km).`
+    : 'Map focus: none (nationwide view). Distances are unavailable until the planner focuses on a suburb ("focus on Sea Point").';
+  const dataset = input.dataset
+    ? `Bundled dataset (nationwide, always available): ${input.dataset.competitors} competitor outlets, ${input.dataset.retail} retail anchors. Competitor brand counts: ${input.dataset.topBrands.map(([b, n]) => `${b} (${n})`).join(', ')}. Retail anchors: ${input.dataset.retailBrands.map(([b, n]) => `${b} (${n})`).join(', ')}.`
+    : '';
+  const layers = input.layers.length
+    ? input.layers.map(l => [
+        `Layer "${l.label}" (${l.colorName} pins): ${l.count} shown of ${l.total}. Brands: ${l.topBrands.map(([b, n]) => `${b} (${n})`).join(', ') || 'n/a'}.`,
+        l.sample.length ? `Nearest examples:\n${l.sample.map(p => placeLine(p, c)).join('\n')}` : '',
+      ].filter(Boolean).join('\n')).join('\n\n')
+    : 'No query layers on the map.';
+  const comp = input.nearbyCompetitors.length
+    ? `Competitors within the focus area (${input.nearbyCompetitors.length}, nearest first). Brand tally: ${brandTally(input.nearbyCompetitors)}.\n${input.nearbyCompetitors.map(p => placeLine(p, c)).join('\n')}`
+    : 'Competitors within the focus area: none in the data (or no focus).';
+  const retail = input.nearbyRetail.length
+    ? `Retail anchors within the focus area (${input.nearbyRetail.length}, nearest first):\n${input.nearbyRetail.map(p => placeLine(p, c)).join('\n')}`
+    : 'Retail anchors within the focus area: none in the data (or no focus).';
+  const existing = input.existingStores.length
+    ? `Existing ${input.brand} stores known (${input.existingStores.length}):\n${input.existingStores.slice(0, 20).map(p => placeLine(p, c)).join('\n')}`
+    : `Existing ${input.brand} stores: not loaded (they load when the planner runs Find sites).`;
+  return [dataset, focus, layers, comp, retail, existing].filter(Boolean);
+}
+
+export function buildMapQuestionPrompt(input: MapQuestionInput, question: string): string {
+  const history = (input.history ?? []).slice(-6).map(t => `${t.role === 'user' ? 'Planner' : 'Analyst'}: ${t.text}`).join('\n');
+  return [
+    `Selected brand: ${input.brand}.`,
+    ...mapDataBlocks(input),
+    history ? `Recent conversation:\n${history}` : '',
+    `Planner's question: ${question}`,
+  ].filter(Boolean).join('\n\n');
+}
+
+/** Answer an ad-hoc question using the competitor / retail data around the current map focus. */
+export async function answerMapQuestion(input: MapQuestionInput, question: string): Promise<string> {
+  if (!API_KEY) throw new Error('Missing required environment variable: API_KEY');
+  const ai = new GoogleGenAI({ apiKey: API_KEY });
+  const res = await ai.models.generateContent({
+    model: REASONING_MODEL,
+    contents: buildMapQuestionPrompt(input, question),
+    config: { systemInstruction: SYSTEM_MAP, thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } },
+  });
+  const text = res.text?.trim();
+  if (!text) throw new Error('Empty answer from the reasoning model.');
+  return text;
 }
